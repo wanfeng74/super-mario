@@ -1,0 +1,34 @@
+{
+  "name": "super-mario",
+  "appid": "8001865309000002",
+  "version": "1.0.0",
+  "description": "超级马里奥 (Super Mario) 横版卷轴平台跳跃游戏 for 有道词典笔 960x266 横条屏",
+  "icon": "",
+  "quickjs": {
+    "version": "20200705",
+    "bigNum": false
+  },
+  "single-js-bundle": false,
+  "scripts": {
+    "build": "aiot-cli -p",
+    "build:dev": "aiot-cli",
+    "package": "aiot-cli -c -q -p"
+  },
+  "keywords": [
+    "iot",
+    "miniapp",
+    "game",
+    "mario",
+    "platformer"
+  ],
+  "devDependencies": {
+    "aiot-vue-cli": "^1.0.32",
+    "css-loader": "0.28.11",
+    "less-loader": "5.0.0",
+    "style-loader": "0.23.1"
+  },
+  "dependencies": {
+    "falcon-ui": "^2.0.2"
+  },
+  "packageManager": "pnpm@10.12.4"
+}

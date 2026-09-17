@@ -1,0 +1,11 @@
+{
+  "pages": {
+    "index": "pages/index/index.vue"
+  },
+  "options": {
+    "style": {},
+    "alias": {
+      "panet": "./src/services/mock-panet.js"
+    }
+  }
+}
