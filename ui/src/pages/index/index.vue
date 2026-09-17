@@ -14,7 +14,7 @@
 
     <!-- ===== 标题画面: 三个存档位 ===== -->
     <div class="title-layer" v-if="screen === 'title'">
-      <div class="slot" v-for="s in slots" :key="s.idx" @click="pickSlot(s)">
+      <div class="slot" v-for="s in slots" :key="s.idx" @touchstart="pickSlot(s)">
         <text class="slot-title">存档 {{ s.idx + 1 }}</text>
         <text class="slot-sub" v-if="!s.empty"
           >WORLD {{ s.level }} · 分数 {{ s.score }} · 金币 x{{ s.coins }} · 生命 x{{ s.lives }}</text
@@ -23,24 +23,24 @@
       </div>
       <text class="tip" v-if="persistOk === false">存档不可用（本次运行仅内存保存）</text>
       <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃</text>
-      <text class="tip">游戏时点击右上角暂停 · 支持键盘方向键/空格（预览器）</text>
+      <text class="tip">游戏时点击右上角暂停</text>
     </div>
 
     <!-- ===== 暂停菜单 ===== -->
     <div class="title-layer" v-if="screen === 'paused'">
       <text class="pause-title">PAUSED</text>
-      <div class="slot" @click="resumeGame">
+      <div class="slot" @touchstart="resumeGame">
         <text class="slot-title">继续游戏</text>
         <text class="slot-sub">WORLD {{ gameState.level }} · 分数 {{ gameState.score }} · 时间 {{ gameState.time }}</text>
       </div>
-      <div class="slot" @click="doSave">
+      <div class="slot" @touchstart="doSave">
         <text class="slot-title">保存进度{{ saveMsg }}</text>
         <text class="slot-sub" v-if="curSlot >= 0">写入存档 {{ curSlot + 1 }}（覆盖）</text>
       </div>
-      <div class="slot" @click="backTitle">
+      <div class="slot" @touchstart="backTitle">
         <text class="slot-title">返回标题</text>
       </div>
-      <div class="slot" v-if="curSlot >= 0" @click="doDelete">
+      <div class="slot" v-if="curSlot >= 0" @touchstart="doDelete">
         <text class="slot-title slot-danger">删除存档 {{ curSlot + 1 }}</text>
       </div>
     </div>
@@ -49,7 +49,7 @@
     <div class="title-layer" v-if="screen === 'gameover'">
       <text class="pause-title">GAME OVER</text>
       <text class="tip">最终分数 {{ gameState.score }} · 金币 x{{ gameState.coins }}</text>
-      <div class="slot" @click="backTitle">
+      <div class="slot" @touchstart="backTitle">
         <text class="slot-title">返回标题</text>
       </div>
     </div>
@@ -76,12 +76,12 @@ export default {
     /* ---- 页面生命周期 (falcon) ---- */
     onShow() {
       if (this._started) {
-        // 从后台/输入法回来: 游戏进行中则恢复循环
+        // 从后台回来: 游戏进行中则恢复循环
         if (this.screen === 'game' && this._game) this.startLoop()
         return
       }
       this._started = true
-      this._init()
+      this.initGame()
     },
     onHide() {
       // 切后台: 停止游戏循环 (时间冻结, 相当于自动暂停)
@@ -100,7 +100,7 @@ export default {
     },
 
     /* ---- 初始化 ---- */
-    _init() {
+    initGame() {
       var canvas = this.$refs.game
       var ctx = null
       try {
@@ -122,44 +122,57 @@ export default {
           this.screen = 'gameover'
         },
       })
+      // 预览调试暴露 (真机 window 为空对象, 赋值无害)
+      try {
+        if (typeof window !== 'undefined') window.__marioGame = this._game
+      } catch (e) {}
 
       this.persistOk = persistAvailable()
-      this.refreshSlots()
-
-      // 键盘 (webpreview / 预览器调试用, 真机无键盘自动忽略)
       var self = this
+      loadSlots().then(function (slots) {
+        self.slots = slots
+      })
+
+      // 键盘 (仅预览器调试用, 真机无键盘自动忽略)
       try {
         if (typeof window !== 'undefined' && window.addEventListener) {
           this._keyDown = function (e) {
-            self._key(e, true)
+            self.keyHandler(e, true)
           }
           this._keyUp = function (e) {
-            self._key(e, false)
+            self.keyHandler(e, false)
           }
           window.addEventListener('keydown', this._keyDown)
           window.addEventListener('keyup', this._keyUp)
         }
       } catch (e) {}
 
-      this._titleTick()
+      this.startTitleAnim()
     },
 
     refreshSlots() {
       var self = this
-      try {
-        this.slots = loadSlots()
-      } catch (e) {
-        this.slots = []
-      }
+      loadSlots().then(function (slots) {
+        self.slots = slots
+      })
       // 标题背景动画
       if (this._titleTimer) clearInterval(this._titleTimer)
       this._titleTimer = setInterval(function () {
         if (self.screen !== 'title') return
-        self._titleTick()
+        self.titleTick()
       }, 100)
     },
 
-    _titleTick() {
+    startTitleAnim() {
+      var self = this
+      if (this._titleTimer) clearInterval(this._titleTimer)
+      this._titleTimer = setInterval(function () {
+        if (self.screen !== 'title') return
+        self.titleTick()
+      }, 100)
+    },
+
+    titleTick() {
       if (!this._game || !this._ctx) return
       try {
         this._game.renderTitle()
@@ -168,26 +181,29 @@ export default {
 
     /* ---- 存档槽交互 ---- */
     pickSlot(s) {
+      // 防抖: backTitle/doDelete 重建 DOM 期间可能收到重复触摸, 短时间忽略
+      if (this._blockPickUntil && Date.now() < this._blockPickUntil) {
+        return
+      }
       this.curSlot = s.idx
-      var st = s.empty
-        ? { level: 1, score: 0, coins: 0, lives: 3, time: 300 }
-        : loadSlot(s.idx)
-      if (st.empty) {
-        st = { level: 1, score: 0, coins: 0, lives: 3, time: 300 }
-      }
-      this.gameState = {
-        level: st.level,
-        score: st.score,
-        coins: st.coins,
-        lives: st.lives,
-        time: st.time,
-      }
-      try {
-        this._game.start(st)
-      } catch (e) {}
-      this.screen = 'game'
-      this.saveMsg = ''
-      this.startLoop()
+      var self = this
+      var fresh = { level: 1, score: 0, coins: 0, lives: 3, time: 300 }
+      loadSlot(s.idx).then(function (st) {
+        if (st.empty) st = fresh
+        self.gameState = {
+          level: st.level,
+          score: st.score,
+          coins: st.coins,
+          lives: st.lives,
+          time: st.time,
+        }
+        try {
+          self._game.start(st)
+        } catch (e) {}
+        self.screen = 'game'
+        self.saveMsg = ''
+        self.startLoop()
+      })
     },
 
     /* ---- 暂停 ---- */
@@ -204,29 +220,27 @@ export default {
       this.startLoop()
     },
     doSave() {
-      var ok = false
-      try {
-        ok = saveSlot(this.curSlot, this._game.getState())
-      } catch (e) {
-        ok = false
-      }
-      this.persistOk = ok
-      this.saveMsg = ok ? ' ✓已保存' : ' ✗保存失败'
       var self = this
-      if (this._saveMsgTimer) clearTimeout(this._saveMsgTimer)
-      this._saveMsgTimer = setTimeout(function () {
-        self.saveMsg = ''
-      }, 1500)
+      saveSlot(this.curSlot, this._game.getState()).then(function (ok) {
+        self.persistOk = ok
+        self.saveMsg = ok ? ' ✓已保存' : ' ✗保存失败'
+        if (self._saveMsgTimer) clearTimeout(self._saveMsgTimer)
+        self._saveMsgTimer = setTimeout(function () {
+          self.saveMsg = ''
+        }, 1500)
+      })
     },
     doDelete() {
-      try {
-        clearSlot(this.curSlot)
-      } catch (e) {}
-      this.screen = 'title'
-      this.curSlot = -1
-      this.refreshSlots()
+      this._blockPickUntil = Date.now() + 400
+      var self = this
+      clearSlot(this.curSlot).then(function () {
+        self.screen = 'title'
+        self.curSlot = -1
+        self.refreshSlots()
+      })
     },
     backTitle() {
+      this._blockPickUntil = Date.now() + 400
       this.stopLoop()
       this.screen = 'title'
       this.curSlot = -1
@@ -259,7 +273,7 @@ export default {
 
     /* ---- 触摸输入: 三段触摸区 ---- */
     onTouchStart(ev) {
-      var pt = this._touchPoint(ev)
+      var pt = this.touchPoint(ev)
       if (!pt) return
       if (this.screen !== 'game') return
       // 右上角暂停热区
@@ -267,13 +281,13 @@ export default {
         this.pauseGame()
         return
       }
-      this._applyTouch(pt)
+      this.applyTouch(pt)
     },
     onTouchMove(ev) {
-      var pt = this._touchPoint(ev)
+      var pt = this.touchPoint(ev)
       if (!pt || this.screen !== 'game') return
       if (pt.y < 46 && pt.x > 860) return
-      this._applyTouch(pt)
+      this.applyTouch(pt)
     },
     onTouchEnd(ev) {
       if (this.screen !== 'game') return
@@ -281,7 +295,7 @@ export default {
       this._game.setInput('right', false)
       this._game.setInput('jump', false)
     },
-    _applyTouch(pt) {
+    applyTouch(pt) {
       if (pt.x < 320) {
         this._game.setInput('left', true)
         this._game.setInput('right', false)
@@ -294,7 +308,7 @@ export default {
         this._game.setInput('jump', true)
       }
     },
-    _touchPoint(ev) {
+    touchPoint(ev) {
       if (!ev) return null
       var t = null
       if (ev.touches && ev.touches.length > 0) t = ev.touches[0]
@@ -307,8 +321,8 @@ export default {
       return { x: x, y: y }
     },
 
-    /* ---- 键盘 (预览器调试) ---- */
-    _key(e, down) {
+    /* ---- 键盘 (仅预览器调试) ---- */
+    keyHandler(e, down) {
       if (this.screen !== 'game') return
       var k = e && e.key != null ? e.key : ''
       var kc = e && e.keyCode != null ? e.keyCode : 0

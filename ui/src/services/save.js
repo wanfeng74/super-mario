@@ -10,6 +10,8 @@
  *     slots: [ {score, coins, lives, level, time, saveAt}, ... ]  // 3 槽
  *   }
  * 每槽保存: 分数 / 金币 / 生命 / 关卡 / 时间, 出生点固定为当前关卡起点。
+ *
+ * 所有读写均走 Promise (panet 原生 API 为 Promise), 页面用 then 消费。
  */
 
 import { Panet } from 'panet'
@@ -69,91 +71,104 @@ function normalize(d) {
 }
 
 function read() {
-  if (_memory) return _memory
-  var d = null
-  var path = savePath()
-  if (path) {
-    try {
-      var raw = client().readFile(path)
-      if (raw) d = JSON.parse(raw)
-    } catch (e) {
-      d = null // 文件不存在/损坏: 按无存档处理, 不代表不可写
-    }
-  } else {
-    _fileOk = false
-  }
-  _memory = normalize(d)
   return _memory
+    ? Promise.resolve(_memory)
+    : client()
+        .readFile(savePath())
+        .then(function (raw) {
+          var d = null
+          try {
+            if (raw) d = JSON.parse(raw)
+          } catch (e) {
+            d = null
+          }
+          _memory = normalize(d)
+          return _memory
+        })
+        .catch(function () {
+          /* 文件不存在/读取失败: 按无存档处理, 不代表不可写 */
+          _memory = normalize(null)
+          return _memory
+        })
 }
 
 function write() {
   var path = savePath()
-  if (!path) return false
-  try {
-    client().writeFile(path, JSON.stringify(_memory))
-    _fileOk = true
-    return true
-  } catch (e) {
+  if (!path) {
     _fileOk = false
-    return false
+    return Promise.resolve(false)
   }
+  return client()
+    .writeFile(path, JSON.stringify(_memory))
+    .then(function () {
+      _fileOk = true
+      return true
+    })
+    .catch(function () {
+      _fileOk = false
+      return false
+    })
 }
 
 /* 读取全部存档槽 (用于标题画面展示) */
 export function loadSlots() {
-  var db = read()
-  var out = []
-  for (var i = 0; i < db.slots.length; i++) {
-    out.push({
-      idx: i,
-      score: db.slots[i].score,
-      coins: db.slots[i].coins,
-      lives: db.slots[i].lives,
-      level: db.slots[i].level,
-      time: db.slots[i].time,
-      saveAt: db.slots[i].saveAt,
-      empty: db.slots[i].saveAt === 0,
-    })
-  }
-  return out
+  return read().then(function (db) {
+    var out = []
+    for (var i = 0; i < db.slots.length; i++) {
+      out.push({
+        idx: i,
+        score: db.slots[i].score,
+        coins: db.slots[i].coins,
+        lives: db.slots[i].lives,
+        level: db.slots[i].level,
+        time: db.slots[i].time,
+        saveAt: db.slots[i].saveAt,
+        empty: db.slots[i].saveAt === 0,
+      })
+    }
+    return out
+  })
 }
 
 /* 读取单个槽 (有档则作为初始进度) */
 export function loadSlot(idx) {
-  var db = read()
-  var s = db.slots[idx] || emptySlot()
-  return {
-    score: s.score,
-    coins: s.coins,
-    lives: s.lives,
-    level: s.level,
-    time: s.time,
-    saveAt: s.saveAt,
-    empty: s.saveAt === 0,
-  }
+  return read().then(function (db) {
+    var s = db.slots[idx] || emptySlot()
+    return {
+      score: s.score,
+      coins: s.coins,
+      lives: s.lives,
+      level: s.level,
+      time: s.time,
+      saveAt: s.saveAt,
+      empty: s.saveAt === 0,
+    }
+  })
 }
 
 /* 写入单个槽 (新建/覆盖) */
 export function saveSlot(idx, state) {
-  var db = read()
-  db.slots[idx] = {
-    score: state.score || 0,
-    coins: state.coins || 0,
-    lives: state.lives || 3,
-    level: state.level || 1,
-    time: typeof state.time === 'number' ? state.time : 300,
-    saveAt: Date.now(),
-  }
-  _memory = db
-  return write()
+  return read().then(function (db) {
+    db.slots[idx] = {
+      score: state.score || 0,
+      coins: state.coins || 0,
+      lives: state.lives || 3,
+      level: state.level || 1,
+      time: typeof state.time === 'number' ? state.time : 300,
+      saveAt: Date.now(),
+    }
+    _memory = db
+    return write()
+  })
 }
 
 /* 删除单个槽 */
 export function clearSlot(idx) {
-  var db = read()
-  db.slots[idx] = emptySlot()
-  _memory = db
-  return write()
+  return read().then(function (db) {
+    db.slots[idx] = emptySlot()
+    _memory = db
+    return write()
+  })
 }
 
 /* $dataDir 是否可用 (不可用时存档只在内存, 重启即失) */
