@@ -3,7 +3,7 @@
   "appid": "8001865309000002",
   "version": "1.0.0",
   "description": "超级马里奥 (Super Mario) 横版卷轴平台跳跃游戏 for 有道词典笔 960x266 横条屏",
-  "icon": "",
+  "icon": "icon.png",
   "quickjs": {
     "version": "20200705",
     "bigNum": false

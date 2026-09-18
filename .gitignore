@@ -7,6 +7,8 @@ dl/
 *.png
 # 真机界面截图 (README 展示用)
 !screenshots/*.png
+# 应用图标
+!ui/icon.png
 
 out/
 *.log
