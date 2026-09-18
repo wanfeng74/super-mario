@@ -379,10 +379,23 @@ export default {
 
     /* ---- 触摸输入: 多指跟踪, 方向+跳跃可同时按住 ---- */
     /* 热区: 左<320 左移 | 320-640 右移 | >=640 跳跃; 右上角 FIRE 按钮 (火焰形态)
-       左上角 x>860 y<46 暂停 */
+       右上角 x>860 y<46 暂停 */
+    /* 触摸点列表: 兼容浏览器标准 TouchList 与真机 falcon 单点事件
+       (falcon 触摸事件对象自身带 clientX/clientY, 无 touches/changedTouches 数组) */
+    touchList(ev) {
+      if (!ev) return []
+      if (ev.touches && ev.touches.length > 0) return ev.touches
+      if (ev.changedTouches && ev.changedTouches.length > 0) return ev.changedTouches
+      if (ev.clientX != null || ev.pageX != null || (ev.x != null && ev.y != null)) return [ev]
+      return []
+    },
+    touchId(t, i, single) {
+      return t.identifier != null ? t.identifier : single ? 'p0' : 'p' + i
+    },
     onTouchStart(ev) {
       if (this.screen !== 'game') return
-      var ts = ev.touches && ev.touches.length > 0 ? ev.touches : ev.changedTouches || []
+      var ts = this.touchList(ev)
+      var single = ts.length <= 1
       for (var i = 0; i < ts.length; i++) {
         var t = ts[i]
         var pt = this.pointOf(t)
@@ -391,7 +404,7 @@ export default {
           this.pauseGame()
           continue
         }
-        var id = t.identifier != null ? t.identifier : 'p' + i
+        var id = this.touchId(t, i, single)
         var zone = this.zoneOf(pt)
         if (zone === 'fire') {
           // 火球只按下瞬间发射一次
@@ -406,10 +419,11 @@ export default {
     },
     onTouchMove(ev) {
       if (this.screen !== 'game') return
-      var ts = ev.touches || []
+      var ts = this.touchList(ev)
+      var single = ts.length <= 1
       for (var i = 0; i < ts.length; i++) {
         var t = ts[i]
-        var id = t.identifier != null ? t.identifier : 'p' + i
+        var id = this.touchId(t, i, single)
         if (this._touchZones[id] == null) continue
         var pt = this.pointOf(t)
         if (!pt) continue
@@ -423,10 +437,21 @@ export default {
       this.refreshTouchInput()
     },
     onTouchEnd(ev) {
-      var ts = ev.changedTouches || []
+      var ts = this.touchList(ev)
+      if (ts.length === 0) {
+        // 真机 touchend 可能不带坐标信息: 保守清空全部触点, 防止方向键卡死
+        this._touchZones = {}
+        if (this.screen === 'game' && this._game) {
+          this._game.setInput('left', false)
+          this._game.setInput('right', false)
+          this._game.setInput('jump', false)
+        }
+        return
+      }
+      var single = ts.length <= 1
       for (var i = 0; i < ts.length; i++) {
         var t = ts[i]
-        var id = t.identifier != null ? t.identifier : 'p' + i
+        var id = this.touchId(t, i, single)
         delete this._touchZones[id]
       }
       if (this.screen !== 'game') return
