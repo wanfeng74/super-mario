@@ -1,8 +1,9 @@
 /*
  * 游戏存档 (3 个存档位)。
  * 固件不提供 storage JS 模块, 用 panet.writeFile/readFile 持久化到
- * 应用私有数据目录 ($dataDir/mario_save.json)。$dataDir 不可用时退化为
- * 内存模式 (仅当前会话有效), 界面会提示"存档不可用"。
+ * 用户数据目录 /userdisk/<项目名>/mario_save.json (目录不存在自动创建,
+ * 用 panet.mkdirs 建)。userdisk 目录退出/重启后仍保留, 解决原
+ * $dataDir 存档丢失问题。
  *
  * 存储结构:
  *   {
@@ -18,12 +19,13 @@ import { Panet } from 'panet'
 
 var SAVE_VERSION = 1
 var SLOT_COUNT = 3
+var SAVE_DIR = '/userdisk/super-mario'
 var SAVE_NAME = 'mario_save.json'
 
 var _panet = null
 var _path = null
 var _memory = null
-var _fileOk = true // $dataDir 是否可用
+var _fileOk = true // 目录/文件是否可写
 
 function client() {
   if (!_panet) _panet = typeof Panet === 'function' ? new Panet() : Panet
@@ -32,20 +34,19 @@ function client() {
 
 function savePath() {
   if (_path !== null) return _path
-  var dir = ''
-  try {
-    dir = globalThis.$dataDir || ''
-  } catch (e) {
-    dir = ''
-  }
-  if (!dir) {
-    /* web 预览环境没有 $dataDir: 用固定前缀, 交给 mock (localStorage) */
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) dir = '/preview'
-    } catch (e) {}
-  }
-  _path = dir ? dir + '/' + SAVE_NAME : ''
+  /* 统一路径: 真机为 /userdisk/super-mario/, web 预览由 mock-panet 以
+     localStorage 承载同一路径, 无需区分环境 */
+  _path = SAVE_DIR + '/' + SAVE_NAME
   return _path
+}
+
+/* 确保 userdisk 项目目录存在 (真机 panet.mkdirs; 预览 mock resolve) */
+function ensureDir() {
+  return client()
+    .mkdirs(SAVE_DIR)
+    .catch(function () {
+      /* 建目录失败不致命, 交给 writeFile 自身报错 */
+    })
 }
 
 function emptySlot() {
@@ -98,8 +99,10 @@ function write() {
     _fileOk = false
     return Promise.resolve(false)
   }
-  return client()
-    .writeFile(path, JSON.stringify(_memory))
+  return ensureDir()
+    .then(function () {
+      return client().writeFile(path, JSON.stringify(_memory))
+    })
     .then(function () {
       _fileOk = true
       return true

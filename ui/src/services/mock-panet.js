@@ -22,6 +22,11 @@ function getStore() {
 }
 
 export var Panet = {
+  mkdirs: function (path) {
+    return new Promise(function (resolve) {
+      resolve(true)
+    })
+  },
   readFile: function (path) {
     return new Promise(function (resolve, reject) {
       var v = getStore().getItem('panet:' + path)

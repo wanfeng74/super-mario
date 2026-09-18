@@ -373,6 +373,8 @@ Game.prototype.bonkTile = function (tile) {
   if (tile.type === 'qblock' && !tile.used) {
     tile.used = true
     this.score += 200
+    this.coins++
+    if (this.coins % 100 === 0) this.lives++
     this.particles.push({
       kind: 'coinpop',
       x: tile.x + TILE / 2,
