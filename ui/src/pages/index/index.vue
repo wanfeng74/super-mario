@@ -10,6 +10,10 @@
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
       @touchcancel="onTouchEnd"
+      @mousedown="onMouseDown"
+      @mousemove="onMouseMove"
+      @mouseup="onMouseUp"
+      @click="onClickTap"
     ></canvas>
 
     <!-- ===== 标题画面: 三个存档位 ===== -->
@@ -25,16 +29,19 @@
         <text class="slot-title">关于</text>
       </div>
       <text class="tip" v-if="persistOk === false">存档不可用（本次运行仅内存保存）</text>
-      <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃（支持多指同按）</text>
-      <text class="tip">吃到火焰花后右上角出现 FIRE 按钮 · 游戏时点击左上角暂停</text>
+      <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃</text>
+      <text class="tip">吃到火焰花后右上角出现 FIRE 按钮 · 游戏时点击右上角暂停</text>
     </div>
 
     <!-- ===== 关于页 ===== -->
     <div class="title-layer" v-if="screen === 'about'">
       <text class="pause-title">关于</text>
       <div class="about-box">
-        <div class="about-version" @touchstart="tapVersion">
+        <div class="about-version" @touchstart="tapVersion" @click="tapVersion">
           <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
+          <text class="about-version-count" v-if="!debugMode && versionTaps > 0"
+            >已连点 {{ versionTaps }}/10</text
+          >
         </div>
         <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
         <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 原野 / 1-4 库巴城堡</text>
@@ -126,7 +133,8 @@ export default {
       debugStar: false,
       _versionTaps: 0,
       _versionTapTimer: 0,
-      _touchZones: {},
+      _lastTapAt: 0,
+      versionTaps: 0,
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
   },
@@ -327,21 +335,29 @@ export default {
     },
     tapVersion() {
       if (this.screen !== 'about') return
+      /* touchstart 与 click 可能同时触发, 同一瞬间只计一次 */
+      var now = Date.now()
+      if (this._lastTapAt && now - this._lastTapAt < 300) return
+      this._lastTapAt = now
       this._versionTaps++
+      this.versionTaps = this._versionTaps
       if (this._versionTapTimer) {
         clearTimeout(this._versionTapTimer)
         this._versionTapTimer = 0
       }
       if (this._versionTaps >= 10) {
         this._versionTaps = 0
+        this.versionTaps = 0
         this.debugMode = true
         this.screen = 'debug'
         return
       }
-      this._versionTapTimer = setTimeout(() => {
-        this._versionTaps = 0
-        this._versionTapTimer = 0
-      }, 2000)
+      var self = this
+      this._versionTapTimer = setTimeout(function () {
+        self._versionTaps = 0
+        self.versionTaps = 0
+        self._versionTapTimer = 0
+      }, 3000)
     },
     pickDebugLevel(lv) {
       if (this.screen !== 'debug') return
@@ -383,115 +399,61 @@ export default {
     /* ---- 触摸输入: 多指跟踪, 方向+跳跃可同时按住 ---- */
     /* 热区: 左<320 左移 | 320-640 右移 | >=640 跳跃; 右上角 FIRE 按钮 (火焰形态)
        右上角 x>860 y<46 暂停 */
-    /* 触摸点列表: 兼容浏览器标准 TouchList 与真机 falcon 单点事件
-       (falcon 触摸事件对象自身带 clientX/clientY, 无 touches/changedTouches 数组) */
-    touchList(ev) {
-      if (!ev) return []
-      if (ev.touches && ev.touches.length > 0) return ev.touches
-      if (ev.changedTouches && ev.changedTouches.length > 0) return ev.changedTouches
-      if (ev.clientX != null || ev.pageX != null || (ev.x != null && ev.y != null)) return [ev]
-      return []
-    },
-    touchId(t, i, single) {
-      return t.identifier != null ? t.identifier : single ? 'p0' : 'p' + i
-    },
+    /* ---- 触摸输入: 与 v1.2.0 一致 (单点按下即动, touchend 全复位),
+       附加火焰形态 FIRE 热区 ---- */
+    /* 热区: 左<320 左移 | 320-640 右移 | >=640 跳跃; FIRE 右上角 (火焰形态)
+       暂停热区: 右上角 x>860 y<46 */
     onTouchStart(ev) {
+      var pt = this.touchPoint(ev)
+      if (!pt) return
       if (this.screen !== 'game') return
-      var ts = this.touchList(ev)
-      var single = ts.length <= 1
-      for (var i = 0; i < ts.length; i++) {
-        var t = ts[i]
-        var pt = this.pointOf(t)
-        if (!pt) continue
-        if (pt.y < 46 && pt.x > 860) {
-          this.pauseGame()
-          continue
-        }
-        var id = this.touchId(t, i, single)
-        var zone = this.zoneOf(pt)
-        if (zone === 'fire') {
-          // 火球只按下瞬间发射一次
-          try {
-            this._game.setInput('fire', true)
-          } catch (e) {}
-          zone = 'none'
-        }
-        this._touchZones[id] = zone
-      }
-      this.refreshTouchInput()
-    },
-    onTouchMove(ev) {
-      if (this.screen !== 'game') return
-      var ts = this.touchList(ev)
-      var single = ts.length <= 1
-      for (var i = 0; i < ts.length; i++) {
-        var t = ts[i]
-        var id = this.touchId(t, i, single)
-        if (this._touchZones[id] == null) continue
-        var pt = this.pointOf(t)
-        if (!pt) continue
-        if (pt.y < 46 && pt.x > 860) {
-          delete this._touchZones[id]
-          continue
-        }
-        var z = this.zoneOf(pt)
-        this._touchZones[id] = z === 'fire' ? 'none' : z
-      }
-      this.refreshTouchInput()
-    },
-    onTouchEnd(ev) {
-      var ts = this.touchList(ev)
-      if (ts.length === 0) {
-        // 真机 touchend 可能不带坐标信息: 保守清空全部触点, 防止方向键卡死
-        this._touchZones = {}
-        if (this.screen === 'game' && this._game) {
-          this._game.setInput('left', false)
-          this._game.setInput('right', false)
-          this._game.setInput('jump', false)
-        }
+      if (pt.y < 46 && pt.x > 860) {
+        this.pauseGame()
         return
       }
-      var single = ts.length <= 1
-      for (var i = 0; i < ts.length; i++) {
-        var t = ts[i]
-        var id = this.touchId(t, i, single)
-        delete this._touchZones[id]
+      if (this.isFireZone(pt)) {
+        try {
+          this._game.setInput('fire', true)
+        } catch (e) {}
+        return
       }
+      this.applyTouch(pt)
+    },
+    onTouchMove(ev) {
+      var pt = this.touchPoint(ev)
+      if (!pt || this.screen !== 'game') return
+      if (pt.y < 46 && pt.x > 860) return
+      if (this.isFireZone(pt)) return
+      this.applyTouch(pt)
+    },
+    onTouchEnd(ev) {
       if (this.screen !== 'game') return
-      this.refreshTouchInput()
+      this._game.setInput('left', false)
+      this._game.setInput('right', false)
+      this._game.setInput('jump', false)
     },
-    refreshTouchInput() {
-      if (!this._game) return
-      var left = false
-      var right = false
-      var jump = false
-      for (var id in this._touchZones) {
-        var z = this._touchZones[id]
-        if (z === 'left') left = true
-        else if (z === 'right') right = true
-        else if (z === 'jump') jump = true
+    applyTouch(pt) {
+      if (pt.x < 320) {
+        this._game.setInput('left', true)
+        this._game.setInput('right', false)
+        this._game.setInput('jump', false)
+      } else if (pt.x < 640) {
+        this._game.setInput('right', true)
+        this._game.setInput('left', false)
+        this._game.setInput('jump', false)
+      } else {
+        this._game.setInput('jump', true)
       }
-      this._game.setInput('left', left)
-      this._game.setInput('right', right)
-      this._game.setInput('jump', jump)
     },
-    /* 热区判定 */
-    zoneOf(pt) {
-      var isFire = false
+    /* FIRE 热区: 火焰形态下右上角按钮区 (按下瞬间发射, 不抢方向/跳跃) */
+    isFireZone(pt) {
+      if (!this._game) return false
       try {
-        isFire = this._game.getState().power === 'fire'
-      } catch (e) {}
-      if (pt.x < 320) return 'left'
-      if (pt.x < 640) return 'right'
-      if (isFire && pt.x >= 820 && pt.y >= 46 && pt.y < 112) return 'fire'
-      return 'jump'
-    },
-    pointOf(t) {
-      if (!t) return null
-      var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
-      var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
-      if (x == null || y == null) return null
-      return { x: x, y: y }
+        if (this._game.getState().power !== 'fire') return false
+      } catch (e) {
+        return false
+      }
+      return pt.x >= 820 && pt.y >= 46 && pt.y < 112
     },
     touchPoint(ev) {
       if (!ev) return null
@@ -504,6 +466,34 @@ export default {
       var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
       if (x == null || y == null) return null
       return { x: x, y: y }
+    },
+    /* 预览器/部分环境鼠标事件兜底: 统一转成触摸处理 */
+    onMouseDown(e) {
+      if (e && e.preventDefault) e.preventDefault()
+      this.onTouchStart({ clientX: e && e.clientX, clientY: e && e.clientY, touches: [], changedTouches: [] })
+    },
+    onMouseMove(e) {
+      if (e && e.preventDefault) e.preventDefault()
+      this.onTouchMove({ clientX: e && e.clientX, clientY: e && e.clientY, touches: [], changedTouches: [] })
+    },
+    onMouseUp(e) {
+      if (e && e.preventDefault) e.preventDefault()
+      this.onTouchEnd({ clientX: e && e.clientX, clientY: e && e.clientY, touches: [], changedTouches: [] })
+    },
+    /* tap 兜底: 只处理 FIRE 与暂停热区 (方向/跳跃由 down/up 处理) */
+    onClickTap(e) {
+      if (this.screen !== 'game' || !this._game) return
+      var pt = this.touchPoint(e)
+      if (!pt) return
+      if (pt.y < 46 && pt.x > 860) {
+        this.pauseGame()
+        return
+      }
+      if (this.isFireZone(pt)) {
+        try {
+          this._game.setInput('fire', true)
+        } catch (err) {}
+      }
     },
 
     /* ---- 键盘 (仅预览器调试) ---- */
@@ -639,6 +629,13 @@ export default {
   color: #ffd75e;
   font-size: 22px;
   font-weight: bold;
+}
+
+.about-version-count {
+  color: #7ee787;
+  font-size: 13px;
+  font-weight: bold;
+  margin-top: 2px;
 }
 
 .about-debug-hint {
