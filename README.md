@@ -39,8 +39,30 @@ ui/
   src/app.json               # 页面注册 (仅 index)
   src/base-page.js           # 页面基类: 定时器统一释放
   src/pages/index/index.vue  # 游戏页面 (标题/存档位/暂停/触摸输入)
-  src/services/game/levels.js # 关卡数据 (段式描述, 1-1 / 1-2)
-  src/services/game/engine.js # Canvas 引擎 (物理/碰撞/敌人/渲染)
+  src/services/game/levels.js # 关卡数据 (段式描述, 1-1~2-4 共8关)
+  src/services/game/engine.js # Canvas 引擎 (物理/碰撞/敌人/渲染/离屏贴图缓存)
+  src/services/game/sprites.js # 像素贴图精灵表 (GitHub参考项目移植)
   src/services/save.js       # 3 存档位持久化 (panet 文件)
   src/services/version.js    # 版本号
 ```
+
+## 更新日志
+
+### v1.2.2 (当前)
+- 角色/砖块/管道/问号块全部用原版 SMB 像素贴图
+- 离屏 canvas 缓存 + drawImage 快路径, 大幅提升性能
+- 长按跳跃跳得更高 (按住时上升重力减半)
+- 8 关按原版布局重做 (1-1~2-4): 管道/问号块/金字塔/旗杆/城堡
+- 地下关深蓝青砖 / 城堡关黑灰砖主题
+- 加乌龟敌人 (Koopa)
+- 修复: 金币 cam 偏移 / 问号块产出道具 / 敌人悬空 / 踩怪判定放宽
+- 调试模式: 关于页独立按钮进入, 可选关/无敌
+
+### v1.2.0
+- 触摸逻辑重构: 三段触摸区 (左移/右移/跳跃), 松开全复位
+- 3 存档位 + 暂停菜单 (继续/保存/回标题/删档)
+- 蘑菇变大 / 火花花变火焰 / 星星无敌
+- 踩怪/顶砖/顶问号块完整玩法
+
+### v1.1.0
+- 初始版本: 1-1/1-2 循环, Goomba 敌人, 旗杆通关
