@@ -1,5 +1,6 @@
 /* 集成测试: 引擎道具/BOSS/存档路径 (Node ESM, 需要 panet resolver) */
 import { createGame } from '../ui/src/services/game/engine.js'
+import { LEVELS } from '../ui/src/services/game/levels.js'
 import { loadSlots, loadSlot, saveSlot, clearSlot, persistAvailable } from '../ui/src/services/save.js'
 import { __calls } from './panet-mock.mjs'
 
@@ -31,8 +32,8 @@ function ok(name, cond, extra) {
   }
 }
 
-/* 1. 四个关卡可加载并稳定跑 30 帧 */
-for (let lv = 1; lv <= 4; lv++) {
+/* 1. 全部关卡可加载并稳定跑 30 帧 */
+for (let lv = 1; lv <= LEVELS.length; lv++) {
   let err = null
   try {
     const g = createGame(ctx, {})

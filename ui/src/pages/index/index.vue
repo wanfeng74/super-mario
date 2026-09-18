@@ -37,19 +37,16 @@
     <div class="title-layer" v-if="screen === 'about'">
       <text class="pause-title">关于</text>
       <div class="about-box">
-        <div class="about-version" @touchstart="tapVersion" @click="tapVersion">
-          <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
-          <text class="about-version-count" v-if="!debugMode && versionTaps > 0"
-            >已连点 {{ versionTaps }}/10</text
-          >
-        </div>
+        <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
         <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
-        <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 原野 / 1-4 库巴城堡</text>
+        <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 台阶 / 1-4 库巴城堡</text>
+        <text class="about-line">　　　2-1 管道 / 2-2 地下 / 2-3 台阶 / 2-4 库巴城堡二</text>
         <text class="about-line">强化道具：超级蘑菇（变大）/ 火焰花（火球）/ 无敌星 / 1UP</text>
         <text class="about-line">收集金币、踩扁敌人、抵达旗杆通关；吃到蘑菇后可以顶碎砖块</text>
         <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
-        <text class="about-debug-hint" v-if="debugMode">调试模式已开启（连点上方版本号进入设置）</text>
-        <text class="about-debug-hint" v-else>连点上方版本号 10 次可进入调试模式</text>
+        <div class="debug-btn" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
+          <text class="debug-btn-text">调试模式</text>
+        </div>
       </div>
       <div class="slot" @touchstart="backFromAbout">
         <text class="slot-title">返回</text>
@@ -64,12 +61,12 @@
         <text class="debug-label">关卡</text>
         <div
           class="debug-chip"
-          v-for="lv in [1, 2, 3, 4]"
+          v-for="lv in [1, 2, 3, 4, 5, 6, 7, 8]"
           :key="lv"
           :class="{ 'debug-chip-on': debugLevel === lv }"
           @touchstart="pickDebugLevel(lv)"
         >
-          <text class="debug-chip-text">1-{{ lv }}</text>
+          <text class="debug-chip-text">{{ debugLevelName(lv) }}</text>
         </div>
       </div>
       <div class="debug-row">
@@ -131,10 +128,6 @@ export default {
       debugMode: false,
       debugLevel: 1,
       debugStar: false,
-      _versionTaps: 0,
-      _versionTapTimer: 0,
-      _lastTapAt: 0,
-      versionTaps: 0,
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
   },
@@ -333,35 +326,17 @@ export default {
       this.screen = 'title'
       this.refreshSlots()
     },
-    tapVersion() {
+    enterDebug() {
       if (this.screen !== 'about') return
-      /* touchstart 与 click 可能同时触发, 同一瞬间只计一次 */
-      var now = Date.now()
-      if (this._lastTapAt && now - this._lastTapAt < 300) return
-      this._lastTapAt = now
-      this._versionTaps++
-      this.versionTaps = this._versionTaps
-      if (this._versionTapTimer) {
-        clearTimeout(this._versionTapTimer)
-        this._versionTapTimer = 0
-      }
-      if (this._versionTaps >= 10) {
-        this._versionTaps = 0
-        this.versionTaps = 0
-        this.debugMode = true
-        this.screen = 'debug'
-        return
-      }
-      var self = this
-      this._versionTapTimer = setTimeout(function () {
-        self._versionTaps = 0
-        self.versionTaps = 0
-        self._versionTapTimer = 0
-      }, 3000)
+      this.debugMode = true
+      this.screen = 'debug'
     },
     pickDebugLevel(lv) {
       if (this.screen !== 'debug') return
       this.debugLevel = lv
+    },
+    debugLevelName(lv) {
+      return lv <= 4 ? '1-' + lv : '2-' + (lv - 4)
     },
     toggleDebugStar() {
       if (this.screen !== 'debug') return
@@ -638,11 +613,22 @@ export default {
   margin-top: 2px;
 }
 
-.about-debug-hint {
+.debug-btn {
+  width: 260px;
+  height: 44px;
+  border-radius: 8px;
+  border-width: 2px;
+  border-color: #ffd75e;
+  background-color: #3a2f14;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.debug-btn-text {
   color: #ffd75e;
-  font-size: 12px;
-  line-height: 18px;
-  margin-top: 4px;
+  font-size: 20px;
+  font-weight: bold;
 }
 
 .debug-title {

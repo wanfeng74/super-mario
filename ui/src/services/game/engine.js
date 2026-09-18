@@ -12,7 +12,34 @@
  *   game.hooks.onGameOver(state) / onClear(state)
  */
 
-import { LEVELS, WORLD_GROUND_Y, WORLD_BLOCKS } from './levels.js'
+import { LEVELS, LEVEL_THEMES, WORLD_GROUND_Y, WORLD_BLOCKS } from './levels.js'
+import {
+  SPRITE_MAP as TEX_MAP,
+  SMALL_STAND,
+  SMALL_WALK,
+  SMALL_JUMP,
+  BIG_STAND,
+  BIG_WALK,
+  BIG_JUMP,
+  FIRE_STAND,
+  FIRE_WALK,
+  FIRE_JUMP,
+  DEAD,
+  COIN,
+  FLOWER,
+  MUSHROOM,
+  QBLOCK,
+  HARD,
+  BRICK,
+  GROUND,
+  PIPE_TOP_L,
+  PIPE_TOP_R,
+  PIPE_BODY_L,
+  PIPE_BODY_R,
+  CLOUD,
+  CLOUD_S,
+  HILL,
+} from './sprites.js'
 
 var TILE = 24
 var VIEW_W = 960
@@ -31,6 +58,8 @@ var DEAD_V = -10.5
 
 /* 颜色 */
 var C_SKY = '#6cb8f8'
+var C_UNDER_BG = '#3a2a20'
+var C_CASTLE_BG = '#141418'
 var C_GROUND_TOP = '#4cae4f'
 var C_GROUND_TOP_DARK = '#3c8f3f'
 var C_GROUND_BODY = '#c9783c'
@@ -62,187 +91,25 @@ var C_ORANGE = '#ff7f27'
 var C_LIME = '#7ec850'
 var C_FIRE = '#f4f4f4'
 
-/* ---------- 像素精灵 (字符 -> 颜色) ---------- */
+/* 字符 -> 颜色: 贴图色板 (sprites.js) + 旧精灵保留色 */
+var SPRITE_MAP = Object.assign(
+  {},
+  {
+    R: C_RED,
+    W: C_WHITE,
+    S: C_SKIN,
+    B: C_BLUE,
+    K: C_SHOE,
+    D: C_BLACK,
+    M: C_BROWN,
+    G: C_PIPE,
+    Y: C_COIN,
+    O: C_ORANGE,
+    L: C_LIME,
+  },
+  TEX_MAP
+)
 
-var SPRITE_MAP = {
-  R: C_RED,
-  W: C_WHITE,
-  S: C_SKIN,
-  B: C_BLUE,
-  K: C_SHOE,
-  D: C_BLACK,
-  M: C_BROWN,
-  G: C_PIPE,
-  Y: C_COIN,
-  O: C_ORANGE,
-  L: C_LIME,
-}
-
-/* 角色 12x12, 放大 2 倍 => 24x24, 与敌人同大 (红帽/棕发/橙脸/红衣/红裤/棕鞋) */
-var MARIO_STAND = [
-  '..RRRRRR....',
-  '..RRRRRR....',
-  '..MMMMMMMM..',
-  '.MMSSSSSSM..',
-  '.MSSSSSSSSM.',
-  '.MSSSSSSSSM.',
-  '.MRRRRRRRM..',
-  'MRRRRRRRRRM.',
-  'SRRRRRRRRRS.',
-  '.RRRRRRRR...',
-  'MM.....MM...',
-  'MM.....MM...',
-]
-var MARIO_WALK = [
-  '..RRRRRR....',
-  '..RRRRRR....',
-  '..MMMMMMMM..',
-  '.MMSSSSSSM..',
-  '.MSSSSSSSSM.',
-  '.MSSSSSSSSM.',
-  '.MRRRRRRRM..',
-  'MRRRRRRRRRM.',
-  'SRRRRRRRRRS.',
-  '.RRRRRRRR...',
-  'MM......MM..',
-  'MM....MM....',
-]
-var MARIO_JUMP = [
-  '..RRRRRR....',
-  '..RRRRRR....',
-  '..MMMMMMMM..',
-  '.MMSSSSSSM..',
-  '.MSSSSSSSSM.',
-  '.MSSSSSSSSM.',
-  '.MRRRRRRRM..',
-  'MRRRRRRRRRM.',
-  'SRRRRRRRRRS.',
-  '..RRRRRR....',
-  '.MMM..MMM...',
-  '.MM....MM...',
-]
-/* 死亡: 大字躺倒 (红帽/棕发/橙脸/红衣/四肢) */
-var MARIO_DEAD = [
-  'RRRRRRRRRRR.',
-  'RRRRRRRRRRR.',
-  'MMMMMMMMMMMM',
-  'MSSSSSSSSSSM',
-  'MSSSSSSSSSSM',
-  'MRRRRRRRRRRM',
-  'SRRRRRRRRRRS',
-  'RRRRRRRRRRRR',
-  'RRRRRRRRRRRR',
-  '.MMM..MMM...',
-  '.MM....MM...',
-  '.MM....MM...',
-]
-/* 大马里奥 (super/fire 形态) 12x24 => 24x48 */
-var MARIO_BIG_STAND = [
-  '...RRRRRR....',
-  '..RRRRRRRR...',
-  '..MMMMMMMM...',
-  '.MMSSSSSMM...',
-  '.MSSSSSSSM...',
-  '.MSSSSSSSM...',
-  '.MMSSSSSMM...',
-  '..MMMMMMM....',
-  '.MRRRRRRRM...',
-  'MRRRRRRRRRM..',
-  'SRRRRRRRRRS..',
-  'SRRRRRRRRRS..',
-  '.SRRRRRRRS...',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '.MRR..RRM....',
-  '.MRR..RRM....',
-  '.MMM..MMM....',
-  'MMM....MMM...',
-  'MM......MM...',
-  'MM......MM...',
-  'MM......MM...',
-  'MM......MM...',
-]
-var MARIO_BIG_WALK = [
-  '...RRRRRR....',
-  '..RRRRRRRR...',
-  '..MMMMMMMM...',
-  '.MMSSSSSMM...',
-  '.MSSSSSSSM...',
-  '.MSSSSSSSM...',
-  '.MMSSSSSMM...',
-  '..MMMMMMM....',
-  '.MRRRRRRRM...',
-  'MRRRRRRRRRM..',
-  'SRRRRRRRRRS..',
-  'SRRRRRRRRRS..',
-  '.SRRRRRRRS...',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '.MRR..RRM....',
-  '.MM....MM....',
-  '.MM....MM....',
-  'MMM...MM.....',
-  'MM.....MM....',
-  'MM.....MM....',
-  'MM.....MM....',
-  'MM.....MM....',
-]
-var MARIO_BIG_JUMP = [
-  '...RRRRRR....',
-  '..RRRRRRRR...',
-  '..MMMMMMMM...',
-  '.MMSSSSSMM...',
-  '.MSSSSSSSM...',
-  '.MSSSSSSSM...',
-  '.MMSSSSSMM...',
-  '..MMMMMMM....',
-  'MRRRRRRRRRM..',
-  'MRRRRRRRRRM..',
-  'SRRRRRRRRRS..',
-  'SSRRRRRRRSS..',
-  '.SRRRRRRRS...',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '..RRRRRRR....',
-  '.MRR....RRM..',
-  '.MRR....RRM..',
-  '.MMM....MMM..',
-  'MMM......MMM.',
-  'MM........MM.',
-  'MM........MM.',
-  'MM........MM.',
-  'MM........MM.',
-]
-var MARIO_BIG_DEAD = [
-  '.............',
-  '.............',
-  '.............',
-  '....RRRRR....',
-  '...RRRRRRR...',
-  '..MMMMMMMM...',
-  '.MMSSSSSSMM..',
-  '.MSSSSSSSSM..',
-  '.MSSSSSSSSM..',
-  '.MMSSSSSSMM..',
-  '..MMMMMMMM...',
-  '.MRRRRRRRM...',
-  'MRRRRRRRRRM..',
-  'MRRRRRRRRRM..',
-  '.MMM...MMM...',
-  'MMM.....MMM..',
-  'MM.......MM..',
-  '.............',
-  '.............',
-  '.............',
-  '.............',
-  '.............',
-  '.............',
-  '.............',
-]
-
-/* 道具: 蘑菇/1UP/火焰花/星星 (12x12 => 24x24) */
 var ITEM_MUSHROOM = [
   '...RRRRRR...',
   '..RRRRRRRR..',
@@ -347,26 +214,134 @@ var GOOMBA_WALK = [
 
 /* ---------- 工具 ---------- */
 
-function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
-  var h = sprite.length
-  var w = sprite[0].length
-  var px0 = Math.round(px)
-  var py0 = Math.round(py)
-  for (var r = 0; r < h; r++) {
+/* 精灵 run-length 缓存: 每行折叠成 [start,len,char] 段, 一次 fillRect 画一段 */
+var _spriteRuns = new WeakMap()
+
+function spriteRunRows(sprite) {
+  var rows = _spriteRuns.get(sprite)
+  if (rows) return rows
+  rows = []
+  for (var r = 0; r < sprite.length; r++) {
     var row = sprite[r]
-    for (var c = 0; c < w; c++) {
+    var rr = []
+    var prev = null
+    var start = 0
+    for (var c = 0; c < row.length; c++) {
       var ch = row.charAt(c)
+      if (ch !== prev) {
+        if (prev !== null) rr.push([start, c - start, prev])
+        prev = ch
+        start = c
+      }
+    }
+    if (prev !== null) rr.push([start, row.length - start, prev])
+    rows.push(rr)
+  }
+  _spriteRuns.set(sprite, rows)
+  return rows
+}
+
+/* 精灵离屏 canvas 缓存: 同一张 sprite 只在第一次渲染时画 fillRect, 之后直接 drawImage */
+var _spriteCanvas = new WeakMap()
+var _canCreateCanvas = null
+
+function ensureCanvas(w, h) {
+  /* falcon 环境: 优先用 document.createElement; 降级用当前 ctx 的 canvas 构造 */
+  if (_canCreateCanvas === false) return null
+  try {
+    if (typeof document !== 'undefined' && document.createElement) {
+      var c = document.createElement('canvas')
+      c.width = w; c.height = h
+      return c
+    }
+  } catch (e) {}
+  _canCreateCanvas = false
+  return null
+}
+
+function spriteToCanvas(sprite, scale, flip) {
+  var key = flip ? ('f_' + sprite) : sprite
+  var canvas = _spriteCanvas.get(key)
+  if (canvas) return canvas
+  var w = sprite[0].length * scale
+  var h = sprite.length * scale
+  canvas = ensureCanvas(w, h)
+  if (!canvas) return null
+  var cctx = canvas.getContext('2d')
+  /* 画到离屏: 直接走 RLE 路径 */
+  var runs = spriteRunRows(sprite)
+  for (var r = 0; r < h / scale; r++) {
+    var rr = runs[r]
+    for (var k = 0; k < rr.length; k++) {
+      var ch = rr[k][2]
       if (ch === '.' || ch === ' ') continue
       var color = SPRITE_MAP[ch]
       if (!color) continue
-      if (colorMap) {
+      var s0 = flip ? w - rr[k][0] * scale - rr[k][1] * scale : rr[k][0] * scale
+      cctx.fillStyle = color
+      cctx.fillRect(s0, r * scale, rr[k][1] * scale, scale)
+    }
+  }
+  _spriteCanvas.set(key, canvas)
+  return canvas
+}
+
+/* 贴图画质: 2.0 原画质 */
+var SPR_SCALE = 2.0
+
+function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
+  /* scale=undefined 时用 SPR_SCALE 并自动居中到 24x24 瓦片;
+     scale=数字 时按原坐标画 (山/云/标题屏等自由位置贴图) */
+  var autoCenter = (scale === undefined || scale === null)
+  if (typeof scale === 'boolean') { colorMap = flip; flip = scale; scale = SPR_SCALE; autoCenter = true }
+  if (autoCenter) scale = SPR_SCALE
+  var h = sprite.length
+  var w = sprite[0].length
+  var px0, py0
+  if (autoCenter) {
+    px0 = Math.round(px + (TILE - w * scale) / 2)
+    py0 = Math.round(py + (TILE - h * scale) / 2)
+  } else {
+    px0 = Math.round(px)
+    py0 = Math.round(py)
+  }
+  /* colorMap 着色模式 (受伤/无敌闪) 不能用缓存 */
+  if (colorMap) {
+    var runs = spriteRunRows(sprite)
+    for (var r = 0; r < h; r++) {
+      var rr = runs[r]
+      for (var k = 0; k < rr.length; k++) {
+        var ch = rr[k][2]
+        if (ch === '.' || ch === ' ') continue
+        var color = SPRITE_MAP[ch]
+        if (!color) continue
         var rep = typeof colorMap === 'function' ? colorMap(color, ch) : colorMap[color]
         if (rep) color = rep
+        var s0 = flip ? w - rr[k][0] - rr[k][1] : rr[k][0]
+        ctx.fillStyle = color
+        ctx.fillRect(px0 + s0 * scale, py0 + r * scale, rr[k][1] * scale, scale)
       }
-      var sx = flip ? px0 + (w - 1 - c) * scale : px0 + c * scale
-      var sy = py0 + r * scale
+    }
+    return
+  }
+  /* 快路径: drawImage 缓存 */
+  var cached = spriteToCanvas(sprite, scale, flip)
+  if (cached) {
+    ctx.drawImage(cached, px0, py0)
+    return
+  }
+  /* 降级: 直接 fillRect */
+  var runs = spriteRunRows(sprite)
+  for (var r = 0; r < h; r++) {
+    var rr = runs[r]
+    for (var k = 0; k < rr.length; k++) {
+      var ch = rr[k][2]
+      if (ch === '.' || ch === ' ') continue
+      var color = SPRITE_MAP[ch]
+      if (!color) continue
+      var s0 = flip ? w - rr[k][0] - rr[k][1] : rr[k][0]
       ctx.fillStyle = color
-      ctx.fillRect(sx, sy, scale, scale)
+      ctx.fillRect(px0 + s0 * scale, py0 + r * scale, rr[k][1] * scale, scale)
     }
   }
 }
@@ -416,6 +391,7 @@ Game.prototype.reset = function () {
 /* 从关卡数据构建世界 */
 Game.prototype.loadLevel = function (levelIdx) {
   var segs = LEVELS[(levelIdx - 1) % LEVELS.length]
+  this.theme = LEVEL_THEMES[levelIdx] || 'overworld'
   this.tiles = []
   this.pipes = []
   this.enemies = []
@@ -455,6 +431,22 @@ Game.prototype.loadLevel = function (levelIdx) {
         squashed: false,
         squashT: 0,
         walk: 0,
+        kind: 'goomba',
+      })
+    } else if (s.t === 't') {
+      /* 乌龟 (Koopa) h=36, 脚底贴地 */
+      var ty = s.y != null ? s.y * TILE : (WORLD_GROUND_Y - 1.5) * TILE
+      this.enemies.push({
+        x: s.x * TILE,
+        y: ty,
+        w: TILE,
+        h: TILE * 1.5,
+        vx: -ENEMY_SPD * 0.8,
+        alive: true,
+        squashed: false,
+        squashT: 0,
+        walk: 0,
+        kind: 'koopa',
       })
     } else if (s.t === 'boss') {
       /* 库巴 BOSS (4x4 瓦片) */
@@ -669,16 +661,7 @@ Game.prototype.bonkTile = function (tile) {
     if (content === 'mushroom') {
       this.spawnPowerup('mushroom', tile.x, tile.y)
     } else if (content === 'flower') {
-      var p = this.player
-      if (p && (p.power === 'super' || p.power === 'fire')) {
-        this.spawnPowerup('flower', tile.x, tile.y)
-      } else {
-        /* small 顶花块只出金币 */
-        this.score += 200
-        this.coins++
-        if (this.coins % 100 === 0) this.lives++
-        this.particles.push({ kind: 'coinpop', x: tile.x + TILE / 2, y: tile.y - TILE / 2, vy: -6, t: 0 })
-      }
+      this.spawnPowerup('flower', tile.x, tile.y)
     } else if (content === 'star') {
       this.spawnPowerup('star', tile.x, tile.y)
     } else if (content === '1up') {
@@ -763,20 +746,18 @@ Game.prototype.updateEnemies = function (dt) {
         e.squashed = true
         e.squashT = 0.5
         this.score += 200
+      } else if (p.vy > 0) {
+        /* 下落踩怪 (即使无敌时间也能踩) */
+        e.alive = false
+        e.squashed = true
+        e.squashT = 0.5
+        p.vy = STOMP_V
+        p.onGround = false
+        this.score += 100
       } else if (this.invuln <= 0) {
-        var stomping = p.vy > 0 && this.playerBottomPrev <= e.y + 6
-        if (stomping) {
-          e.alive = false
-          e.squashed = true
-          e.squashT = 0.5
-          p.vy = STOMP_V
-          p.onGround = false
-          this.score += 100
-        } else {
-          this.hurtPlayer()
-          keep.push(e)
-          continue
-        }
+        this.hurtPlayer()
+        keep.push(e)
+        continue
       }
     }
     keep.push(e)
@@ -1128,7 +1109,10 @@ Game.prototype.tick = function (dtMs) {
 
   /* 移动 */
   this.movePlayerX()
-  p.vy = Math.min(p.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+  /* 长按跳跃: 按住时上升阶段重力减半 -> 跳得更高; 松开立即全重力下落 */
+  var g = GRAVITY
+  if (this.input.jump && p.vy < 0) g *= 0.42
+  p.vy = Math.min(p.vy + g * (dt / 16.667), MAX_FALL)
   p.onGround = false
   this.movePlayerY()
 
@@ -1182,7 +1166,7 @@ Game.prototype.tick = function (dtMs) {
 Game.prototype.render = function () {
   var ctx = this.ctx
   var cam = Math.round(this.camX)
-  ctx.fillStyle = C_SKY
+  ctx.fillStyle = this.theme === 'underground' ? C_UNDER_BG : (this.theme === 'castle' ? C_CASTLE_BG : C_SKY)
   ctx.fillRect(0, 0, VIEW_W, VIEW_H)
 
   this.renderBackdrop(ctx, cam)
@@ -1192,7 +1176,7 @@ Game.prototype.render = function () {
   for (var i = 0; i < this.coinItems.length; i++) {
     var c = this.coinItems[i]
     if (!c.active || c.x + c.w < cam || c.x > cam + VIEW_W) continue
-    this.drawCoin(ctx, c.x + TILE / 2, c.y + TILE / 2, c.t)
+    this.drawCoin(ctx, c.x - cam + TILE / 2, c.y + TILE / 2, c.t)
   }
 
   /* 敌人 */
@@ -1205,18 +1189,29 @@ Game.prototype.render = function () {
       ctx.fillRect(e.x, e.y + e.h - 8, e.w, 8)
       continue
     }
-    var spr = Math.floor(e.walk) % 2 === 0 ? GOOMBA : GOOMBA_WALK
-    drawSprite(ctx, spr, 2, e.x - cam, e.y, false)
+    var spr
+    if (e.kind === 'koopa') {
+      spr = KOOPA
+    } else {
+      spr = Math.floor(e.walk) % 2 === 0 ? GOOMBA : GOOMBA_WALK
+    }
+    drawSprite(ctx, spr, undefined, e.x - cam, e.y, e.vx > 0)
   }
 
   /* 强化道具 */
   for (var u = 0; u < this.powerups.length; u++) {
     var pu = this.powerups[u]
     if (!pu.active || pu.x + pu.w < cam || pu.x > cam + VIEW_W) continue
-    var puSpr = pu.kind === 'mushroom' ? ITEM_MUSHROOM :
-      pu.kind === '1up' ? ITEM_MUSHROOM_1UP :
-      pu.kind === 'flower' ? ITEM_FLOWER : ITEM_STAR
-    drawSprite(ctx, puSpr, 2, pu.x - cam, pu.y, false)
+    if (pu.kind === 'mushroom') {
+      drawSprite(ctx, MUSHROOM, undefined, pu.x - cam, pu.y, false)
+    } else if (pu.kind === 'flower') {
+      var fi = Math.floor(this.animT / 110) % FLOWER.length
+      drawSprite(ctx, FLOWER[fi], undefined, pu.x - cam, pu.y, false)
+    } else if (pu.kind === '1up') {
+      drawSprite(ctx, ITEM_MUSHROOM_1UP, undefined, pu.x - cam, pu.y, false)
+    } else {
+      drawSprite(ctx, ITEM_STAR, undefined, pu.x - cam, pu.y, false)
+    }
   }
 
   /* 火球 */
@@ -1265,18 +1260,46 @@ Game.prototype.render = function () {
 }
 
 Game.prototype.renderBackdrop = function (ctx, cam) {
-  /* 远山 (视差 0.2) */
+  if (this.theme === 'castle') {
+    /* 城堡: 黑砖墙 + 底部熔岩带 */
+    var cw = -((cam * 0.15) % 24)
+    ctx.fillStyle = '#2a2a30'
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    ctx.fillStyle = '#3a3a42'
+    for (var cx = cw; cx < VIEW_W; cx += 24) {
+      ctx.fillRect(cx, 0, 6, VIEW_H)
+    }
+    ctx.fillStyle = '#201c18'
+    for (var cy = 0; cy < VIEW_H; cy += 12) {
+      var coff = (Math.floor(cy / 24) % 2) * 12
+      ctx.fillRect(cw + coff, cy, VIEW_W, 2)
+    }
+    return
+  }
+
+  if (this.theme === 'underground') {
+    /* 地下: 深蓝色背景 */
+    ctx.fillStyle = '#000020'
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    return
+  }
+  if (this.theme === 'castle') {
+    /* 城堡: 黑色背景 */
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    return
+  }
+
+  /* 远山 (视差 0.2), 贴图平铺, 山底延伸地面顶 (240) 消除缝隙 */
   var m1 = -((cam * 0.2) % 640)
-  ctx.fillStyle = '#7fd08a'
   for (var i = 0; i < 3; i++) {
     var mx = m1 + i * 640
-    this.drawHill(ctx, mx + 60, 196, 190, 80)
+    this.drawHill(ctx, mx + 60, WORLD_GROUND_Y * TILE, 190)
   }
   var m2 = -((cam * 0.35) % 900)
-  ctx.fillStyle = '#4aa763'
   for (var k = 0; k < 2; k++) {
     var mxx = m2 + k * 900
-    this.drawHill(ctx, mxx + 120, 214, 240, 60)
+    this.drawHill(ctx, mxx + 120, WORLD_GROUND_Y * TILE, 240)
   }
 
   /* 云 (视差 0.5) */
@@ -1289,95 +1312,74 @@ Game.prototype.renderBackdrop = function (ctx, cam) {
   }
 }
 
-Game.prototype.drawHill = function (ctx, x, baseY, w, h) {
-  ctx.beginPath()
-  ctx.moveTo(x, baseY)
-  ctx.lineTo(x + w / 2, baseY - h)
-  ctx.lineTo(x + w, baseY)
-  ctx.closePath()
-  ctx.fill()
+Game.prototype.drawHill = function (ctx, x, baseY, w) {
+  /* 原版山贴图 (HILL 28x17 字符, scale2 => 56x34px), 平铺成连绵山 */
+  var n = Math.max(1, Math.round(w / 56))
+  for (var i = 0; i < n; i++) {
+    drawSprite(ctx, HILL, 2, x + i * 56, baseY - 34, false)
+  }
+  /* 补平贴图底部缺口, 保证与地面无缝 */
+  ctx.fillStyle = '#0d9300'
+  ctx.fillRect(x, baseY - 2, w, 2)
 }
 
 Game.prototype.drawCloud = function (ctx, x, y, s) {
-  var u = 14 * s
-  ctx.fillRect(x, y, 5 * u, u)
-  ctx.fillRect(x + u, y - u, 3 * u, u)
-  ctx.fillRect(x + u, y, u, 2 * u)
-  ctx.fillRect(x + 2 * u, y - 2 * u, 3 * u, 2 * u)
+  var spr = s >= 1 ? CLOUD : CLOUD_S
+  drawSprite(ctx, spr, 2, x, y, false)
 }
 
 Game.prototype.renderTiles = function (ctx, cam) {
+  /* 主题色板: underground 青蓝, castle 灰, overworld 橙 */
+  var themeCM = null
+  if (this.theme === 'underground') {
+    themeCM = { '#c75100': '#2890d0', '#e44c00': '#40b0e8', '#7c0e00': '#105080', '#000000': '#000030' }
+  } else if (this.theme === 'castle') {
+    themeCM = { '#c75100': '#909090', '#e44c00': '#b0b0b0', '#7c0e00': '#505050', '#000000': '#000000' }
+  }
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead || t.x + t.w < cam || t.x > cam + VIEW_W) continue
     var sx = t.x - cam
     if (t.type === 'ground') {
-      ctx.fillStyle = C_GROUND_TOP
-      ctx.fillRect(sx, t.y, t.w, 10)
-      ctx.fillStyle = C_GROUND_TOP_DARK
-      ctx.fillRect(sx, t.y + 10, t.w, 4)
-      ctx.fillStyle = C_GROUND_BODY
-      ctx.fillRect(sx, t.y + 14, t.w, t.h - 14)
-      ctx.fillStyle = C_GROUND_BODY_DARK
-      for (var g = 0; g < t.w / TILE; g++) {
-        var gx = sx + g * TILE
-        ctx.fillRect(gx + 4, t.y + 18 + ((g % 2) * 10), TILE - 8, 6)
+      /* 地面: 纯色填充 (无贴图, 省性能) */
+      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#3a6ea5' : '#c84c0c'
+      ctx.fillRect(sx, t.y, t.w, t.h)
+      /* 顶面草线 */
+      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#7ab8e0' : '#e87820'
+      ctx.fillRect(sx, t.y, t.w, 4)
+      /* 砖缝 */
+      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#2a5a8a' : '#8a330c'
+      var gx2 = Math.ceil(t.w / TILE)
+      for (var gg2 = 0; gg2 <= gx2; gg2++) {
+        ctx.fillRect(sx + gg2 * TILE, t.y, 2, Math.min(12, t.h))
       }
     } else if (t.type === 'brick') {
       var bY = t.bumpT > 0 ? t.y - Math.sin(t.bumpT * 30) * 4 : t.y
-      ctx.fillStyle = C_BRICK
-      ctx.fillRect(sx, bY, TILE, TILE)
-      ctx.fillStyle = C_BRICK_DARK
-      ctx.fillRect(sx, bY + TILE - 2, TILE, 2)
-      ctx.fillRect(sx + TILE - 2, bY, 2, TILE)
-      ctx.fillRect(sx + TILE / 2 - 1, bY + 8, 2, TILE - 12)
-      ctx.fillStyle = C_BRICK_LIGHT
-      ctx.fillRect(sx, bY, TILE, 2)
-      ctx.fillRect(sx, bY, 2, TILE)
+      drawSprite(ctx, BRICK, undefined, sx, bY, false, themeCM)
     } else if (t.type === 'qblock') {
-      var base = t.used ? C_HARD : C_QB
-      var dark = t.used ? C_HARD_DARK : C_QB_DARK
-      var light = t.used ? C_HARD_LIGHT : C_QB_LIGHT
-      ctx.fillStyle = dark
-      ctx.fillRect(sx, t.y, TILE, TILE)
-      ctx.fillStyle = base
-      ctx.fillRect(sx + 2, t.y + 2, TILE - 4, TILE - 4)
-      ctx.fillStyle = light
-      ctx.fillRect(sx + 2, t.y + 2, TILE - 4, 3)
-      ctx.fillRect(sx + 2, t.y + 2, 3, TILE - 4)
-      if (!t.used) {
-        ctx.fillStyle = C_WHITE
-        ctx.font = 'bold 15px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText('?', sx + TILE / 2, t.y + 18)
+      if (t.used) {
+        drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
+      } else {
+        var qi = Math.floor(this.animT / 110) % QBLOCK.length
+        drawSprite(ctx, QBLOCK[qi], undefined, sx, t.y, false, themeCM)
       }
     } else if (t.type === 'hard') {
-      ctx.fillStyle = C_HARD
-      ctx.fillRect(sx, t.y, TILE, TILE)
-      ctx.fillStyle = C_HARD_DARK
-      ctx.fillRect(sx, t.y + TILE - 3, TILE, 3)
-      ctx.fillRect(sx + TILE - 3, t.y, 3, TILE)
-      ctx.fillStyle = C_HARD_LIGHT
-      ctx.fillRect(sx, t.y, TILE, 3)
-      ctx.fillRect(sx, t.y, 3, TILE)
+      drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
     }
   }
 
-  /* 管道 (整体绘制) */
+  /* 管道: 贴图 (顶盖 + 管身) */
   for (var p = 0; p < this.pipes.length; p++) {
     var pi = this.pipes[p]
     if (pi.x + pi.w < cam || pi.x > cam + VIEW_W) continue
     var psx = pi.x - cam
-    ctx.fillStyle = C_PIPE_DARK
-    ctx.fillRect(psx, pi.y, pi.w, pi.h)
-    ctx.fillStyle = C_PIPE
-    ctx.fillRect(psx + 3, pi.y, pi.w - 3, pi.h)
-    ctx.fillStyle = C_PIPE_LIGHT
-    ctx.fillRect(psx + 3, pi.y, 8, pi.h)
-    ctx.fillStyle = C_PIPE_DARK
-    ctx.fillRect(psx, pi.y, pi.w, 8)
-    ctx.fillStyle = C_PIPE_LIGHT
-    ctx.fillRect(psx + 3, pi.y + 2, 6, 4)
+    var rows = Math.round(pi.h / TILE)
+    drawSprite(ctx, PIPE_TOP_L, undefined, psx, pi.y, false)
+    drawSprite(ctx, PIPE_TOP_R, undefined, psx + TILE, pi.y, false)
+    for (var pr = 1; pr < rows; pr++) {
+      drawSprite(ctx, PIPE_BODY_L, undefined, psx, pi.y + pr * TILE, false)
+      drawSprite(ctx, PIPE_BODY_R, undefined, psx + TILE, pi.y + pr * TILE, false)
+    }
   }
 
   /* 旗杆 */
@@ -1443,15 +1445,20 @@ Game.prototype.renderPlayer = function (ctx, cam) {
   if (this.state === 'idle') return
   /* 无敌闪烁 */
   if (this.invuln > 0 && Math.floor(this.invuln / 120) % 2 === 0) return
-  var big = p.power === 'super' || p.power === 'fire'
-  var spr = big ? MARIO_BIG_STAND : MARIO_STAND
+  var fire = p.power === 'fire'
+  var big = p.power === 'super' || fire
+  var spr
   if (this.state === 'dead') {
-    spr = big ? MARIO_BIG_DEAD : MARIO_DEAD
+    spr = DEAD
   } else if (!p.onGround) {
-    spr = big ? MARIO_BIG_JUMP : MARIO_JUMP
+    spr = fire ? FIRE_JUMP : big ? BIG_JUMP : SMALL_JUMP
   } else if (p.vx !== 0) {
-    if (big) spr = Math.floor(p.walk) % 2 === 0 ? MARIO_BIG_WALK : MARIO_BIG_STAND
-    else spr = Math.floor(p.walk) % 2 === 0 ? MARIO_WALK : MARIO_STAND
+    var wf = Math.floor(p.walk) % 2
+    if (fire) spr = wf === 0 ? FIRE_WALK[0] : FIRE_WALK[1]
+    else if (big) spr = wf === 0 ? BIG_WALK[0] : BIG_WALK[1]
+    else spr = wf === 0 ? SMALL_WALK[0] : SMALL_WALK[1]
+  } else {
+    spr = fire ? FIRE_STAND : big ? BIG_STAND : SMALL_STAND
   }
   /* 无敌星: 彩虹闪烁; 火焰: 红白换装 */
   var colorMap = null
@@ -1463,24 +1470,24 @@ Game.prototype.renderPlayer = function (ctx, cam) {
       if (ch === 'R' || ch === 'M' || ch === 'S') return col
       return color
     }
-  } else if (p.power === 'fire') {
+  } else if (fire) {
     colorMap = { '#e52521': C_FIRE }
   }
-  drawSprite(ctx, spr, 2, p.x - cam, p.y, p.facing < 0, colorMap)
+  /* 大马里奥贴图 48px 高, 不居中直接画; 小马里奥 24px 居中 */
+  var sprScale = big ? 2 : undefined
+  drawSprite(ctx, spr, sprScale, p.x - cam, p.y, p.facing < 0, colorMap)
 }
 
 Game.prototype.drawCoin = function (ctx, cx, cy, t) {
-  var w = Math.max(3, Math.abs(Math.sin(t)) * 11)
-  ctx.fillStyle = C_COIN_DARK
+  /* 简单黄色金币 (圆形) */
+  ctx.fillStyle = '#f8b020'
   ctx.beginPath()
-  ctx.arc(cx, cy, 11, 0, 6.283)
+  ctx.arc(cx, cy, 7, 0, 6.283)
   ctx.fill()
-  ctx.fillStyle = C_COIN
+  ctx.fillStyle = '#e89010'
   ctx.beginPath()
-  ctx.arc(cx, cy - 1, 9.5, 0, 6.283)
+  ctx.arc(cx, cy, 4, 0, 6.283)
   ctx.fill()
-  ctx.fillStyle = '#fff4c0'
-  ctx.fillRect(cx - w / 2, cy - 6, w, 12)
 }
 
 Game.prototype.renderParticles = function (ctx, cam) {
@@ -1515,7 +1522,7 @@ Game.prototype.renderHUD = function (ctx) {
   ctx.textAlign = 'left'
   /* 生命 (马里奥小头像) */
   this.hudText(ctx, 'x' + this.lives, 96, 26)
-  drawSprite(ctx, MARIO_STAND, 1, 52, 10, false)
+  drawSprite(ctx, SMALL_STAND, 1, 52, 10, false)
   /* 强化状态 */
   var p = this.player
   if (p && p.power !== 'small') {
@@ -1644,7 +1651,7 @@ Game.prototype.renderTitle = function (levelText) {
   ctx.fillText('WIFI EDITION', VIEW_W / 2, 128)
   ctx.textAlign = 'left'
   /* 角色 */
-  drawSprite(ctx, MARIO_STAND, 3, 300, 158, false)
+  drawSprite(ctx, SMALL_STAND, 3, 300, 158, false)
   drawSprite(ctx, GOOMBA, 3, 620, 164, false)
 }
 
