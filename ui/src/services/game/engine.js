@@ -69,62 +69,114 @@ var SPRITE_MAP = {
   K: C_SHOE,
   D: C_BLACK,
   M: C_BROWN,
+  G: C_PIPE,
 }
 
-/* 马里奥 12x16, 放大 2 倍 => 24x32 */
+/* 角色 12x24, 放大 2 倍 => 24x48 完整覆盖碰撞框 (红帽/棕发/橙脸/红衣/红裤/棕鞋) */
 var MARIO_STAND = [
-  '...RRRRRR...',
-  '..RRRRRRRR..',
-  '..RRRRRRRR..',
-  '..WWWWWWW...',
-  '..SSSSSSS...',
-  '..SSBBSSS...',
-  '..SBBBBB....',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBB.....',
-  '..BBBBB.....',
-  '..SS..SS....',
-  '..KK..KK....',
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SRRRRRRRRRS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR..RRM....',
+  '.MRR..RRM....',
+  '.MMM..MMM....',
+  'MMM....MMM...',
+  'MM......MM...',
+  'MM......MM...',
+  'MM......MM...',
+  'MM......MM...',
 ]
 var MARIO_WALK = [
-  '...RRRRRR...',
-  '..RRRRRRRR..',
-  '..RRRRRRRR..',
-  '..WWWWWWW...',
-  '..SSSSSSS...',
-  '..SSBBSSS...',
-  '..SBBBBB....',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBB.....',
-  '..BBBBB.....',
-  '..SSSS......',
-  '..KK..KK....',
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SRRRRRRRRRS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR..RRM....',
+  '.MM....MM....',
+  '.MM....MM....',
+  'MMM...MM.....',
+  'MM.....MM....',
+  'MM.....MM....',
+  'MM.....MM....',
+  'MM.....MM....',
 ]
 var MARIO_JUMP = [
-  '...RRRRRR...',
-  '..RRRRRRRR..',
-  '..RRRRRRRR..',
-  '..WWWWWWW...',
-  '..SSSSSSS...',
-  '..SSBBSSS...',
-  '..SBBBBB....',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBBBB...',
-  '..BBBBB.....',
-  '..BBBBB.....',
-  '..KK...KK...',
-  '............',
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  'MRRRRRRRRRM..',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SSRRRRRRRSS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR....RRM..',
+  '.MRR....RRM..',
+  '.MMM....MMM..',
+  'MMM......MMM.',
+  'MM........MM.',
+  'MM........MM.',
+  'MM........MM.',
+  'MM........MM.',
+]
+/* 死亡: 大字躺倒 (红帽/棕发/橙脸/红衣/四肢) */
+var MARIO_DEAD = [
+  '.............',
+  '.............',
+  '.............',
+  '....RRRRR....',
+  '...RRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSSMM..',
+  '.MSSSSSSSSM..',
+  '.MSSSSSSSSM..',
+  '.MMSSSSSSMM..',
+  '..MMMMMMMM...',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'MRRRRRRRRRM..',
+  '.MMM...MMM...',
+  'MMM.....MMM..',
+  'MM.......MM..',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
 ]
 var GOOMBA = [
   '....MMMM....',
@@ -212,6 +264,7 @@ Game.prototype.reset = function () {
   this.worldH = (WORLD_GROUND_Y + 2) * TILE
   this.speedBonus = 0
   this.invuln = 0
+  this.playerBottomPrev = 0
 }
 
 /* 从关卡数据构建世界 */
@@ -281,6 +334,7 @@ Game.prototype.loadLevel = function (levelIdx) {
   if (!this.player) {
     this.player = { x: 2 * TILE, y: (WORLD_GROUND_Y - 2) * TILE, w: TILE, h: 2 * TILE, vx: 0, vy: 0, onGround: false, facing: 1, walk: 0 }
   }
+  this.playerBottomPrev = this.player.y + this.player.h
   this.time = Math.max(200, 300 - (levelIdx - 1) * 30)
   this.invuln = 0
   this.state = 'playing'
@@ -440,7 +494,9 @@ Game.prototype.updateEnemies = function (dt) {
       continue
     }
     if (rectsHit(p.x, p.y, p.w, p.h, e.x, e.y, e.w, e.h)) {
-      var stomping = p.vy > 0 && p.y + p.h - e.y < 14
+      /* 踩踏判定: 玩家上一帧底部在敌人顶部(含 6px 容差)之上且正在下落.
+         不能用当前穿透深度 p.y+p.h-e.y —— 玩家落地后穿透恒为 24px, 会永远判成撞死 */
+      var stomping = p.vy > 0 && this.playerBottomPrev <= e.y + 6
       if (stomping) {
         e.alive = false
         e.squashed = true
@@ -548,6 +604,9 @@ Game.prototype.tick = function (dtMs) {
 
   var p = this.player
   var dt = dtMs
+
+  /* 记录玩家上一帧底部位置 (用于踩踏判定, 防止穿过敌人落地后误判) */
+  this.playerBottomPrev = p.y + p.h
 
   /* 计时 */
   this.time -= dt / 1000
@@ -825,7 +884,7 @@ Game.prototype.renderPlayer = function (ctx, cam) {
   if (this.invuln > 0 && Math.floor(this.invuln / 120) % 2 === 0) return
   var spr = MARIO_STAND
   if (this.state === 'dead') {
-    spr = MARIO_JUMP
+    spr = MARIO_DEAD
   } else if (!p.onGround) {
     spr = MARIO_JUMP
   } else if (p.vx !== 0) {
