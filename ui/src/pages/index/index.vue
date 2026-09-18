@@ -33,13 +33,16 @@
     <div class="title-layer" v-if="screen === 'about'">
       <text class="pause-title">关于</text>
       <div class="about-box">
-        <text class="about-line" @touchstart="tapVersion">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
+        <div class="about-version" @touchstart="tapVersion">
+          <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
+        </div>
         <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
         <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 原野 / 1-4 库巴城堡</text>
         <text class="about-line">强化道具：超级蘑菇（变大）/ 火焰花（火球）/ 无敌星 / 1UP</text>
         <text class="about-line">收集金币、踩扁敌人、抵达旗杆通关；吃到蘑菇后可以顶碎砖块</text>
         <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
         <text class="about-debug-hint" v-if="debugMode">调试模式已开启（连点上方版本号进入设置）</text>
+        <text class="about-debug-hint" v-else>连点上方版本号 10 次可进入调试模式</text>
       </div>
       <div class="slot" @touchstart="backFromAbout">
         <text class="slot-title">返回</text>
@@ -617,6 +620,25 @@ export default {
   color: #e8ecf8;
   font-size: 13px;
   line-height: 19px;
+}
+
+.about-version {
+  width: 100%;
+  height: 52px;
+  margin-bottom: 6px;
+  background-color: rgba(70, 90, 160, 0.85);
+  border-width: 2px;
+  border-color: #ffd75e;
+  border-style: solid;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-version-text {
+  color: #ffd75e;
+  font-size: 22px;
+  font-weight: bold;
 }
 
 .about-debug-hint {
