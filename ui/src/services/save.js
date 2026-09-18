@@ -1,16 +1,16 @@
 /*
  * 游戏存档 (3 个存档位)。
  * 固件不提供 storage JS 模块, 用 panet.writeFile/readFile 持久化到
- * 用户数据目录 /userdisk/<项目名>/mario_save.json (目录不存在自动创建,
- * 用 panet.mkdirs 建)。userdisk 目录退出/重启后仍保留, 解决原
- * $dataDir 存档丢失问题。
+ * 系统用户数据目录 /userdisk/database/super_mario_save.json。
+ * /userdisk/database 为设备自带持久目录 (系统级, 退出/重启/恢复出厂外的
+ * 场景均保留), 目录天然存在, 无需 mkdirs; 保留 ensureDir 仅为兜底。
  *
  * 存储结构:
  *   {
  *     version: 1,
- *     slots: [ {score, coins, lives, level, time, saveAt}, ... ]  // 3 槽
+ *     slots: [ {score, coins, lives, level, time, power, saveAt}, ... ]  // 3 槽
  *   }
- * 每槽保存: 分数 / 金币 / 生命 / 关卡 / 时间, 出生点固定为当前关卡起点。
+ * 每槽保存: 分数 / 金币 / 生命 / 关卡 / 时间 / 强化状态, 出生点固定为当前关卡起点。
  *
  * 所有读写均走 Promise (panet 原生 API 为 Promise), 页面用 then 消费。
  */
@@ -19,8 +19,8 @@ import { Panet } from 'panet'
 
 var SAVE_VERSION = 1
 var SLOT_COUNT = 3
-var SAVE_DIR = '/userdisk/super-mario'
-var SAVE_NAME = 'mario_save.json'
+var SAVE_DIR = '/userdisk/database'
+var SAVE_NAME = 'super_mario_save.json'
 
 var _panet = null
 var _path = null
@@ -50,7 +50,7 @@ function ensureDir() {
 }
 
 function emptySlot() {
-  return { score: 0, coins: 0, lives: 3, level: 1, time: 300, saveAt: 0 }
+  return { score: 0, coins: 0, lives: 3, level: 1, time: 300, power: 'small', saveAt: 0 }
 }
 
 function normalize(d) {
@@ -64,6 +64,7 @@ function normalize(d) {
       s.lives = typeof raw.lives === 'number' ? raw.lives : 3
       s.level = typeof raw.level === 'number' ? raw.level : 1
       s.time = typeof raw.time === 'number' ? raw.time : 300
+      s.power = raw.power === 'super' || raw.power === 'fire' ? raw.power : 'small'
       s.saveAt = typeof raw.saveAt === 'number' ? raw.saveAt : 0
     }
     slots.push(s)
@@ -125,6 +126,7 @@ export function loadSlots() {
         lives: db.slots[i].lives,
         level: db.slots[i].level,
         time: db.slots[i].time,
+        power: db.slots[i].power,
         saveAt: db.slots[i].saveAt,
         empty: db.slots[i].saveAt === 0,
       })
@@ -143,6 +145,7 @@ export function loadSlot(idx) {
       lives: s.lives,
       level: s.level,
       time: s.time,
+      power: s.power,
       saveAt: s.saveAt,
       empty: s.saveAt === 0,
     }
@@ -158,6 +161,7 @@ export function saveSlot(idx, state) {
       lives: state.lives || 3,
       level: state.level || 1,
       time: typeof state.time === 'number' ? state.time : 300,
+      power: state.power === 'super' || state.power === 'fire' ? state.power : 'small',
       saveAt: Date.now(),
     }
     _memory = db

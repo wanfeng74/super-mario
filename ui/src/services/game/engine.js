@@ -58,6 +58,9 @@ var C_BLACK = '#1c1c1c'
 var C_BROWN = '#8b5a2b'
 var C_CASTLE = '#c0392b'
 var C_CASTLE_DARK = '#8e2a1f'
+var C_ORANGE = '#ff7f27'
+var C_LIME = '#7ec850'
+var C_FIRE = '#f4f4f4'
 
 /* ---------- 像素精灵 (字符 -> 颜色) ---------- */
 
@@ -70,6 +73,9 @@ var SPRITE_MAP = {
   D: C_BLACK,
   M: C_BROWN,
   G: C_PIPE,
+  Y: C_COIN,
+  O: C_ORANGE,
+  L: C_LIME,
 }
 
 /* 角色 12x12, 放大 2 倍 => 24x24, 与敌人同大 (红帽/棕发/橙脸/红衣/红裤/棕鞋) */
@@ -130,6 +136,186 @@ var MARIO_DEAD = [
   '.MM....MM...',
   '.MM....MM...',
 ]
+/* 大马里奥 (super/fire 形态) 12x24 => 24x48 */
+var MARIO_BIG_STAND = [
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SRRRRRRRRRS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR..RRM....',
+  '.MRR..RRM....',
+  '.MMM..MMM....',
+  'MMM....MMM...',
+  'MM......MM...',
+  'MM......MM...',
+  'MM......MM...',
+  'MM......MM...',
+]
+var MARIO_BIG_WALK = [
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SRRRRRRRRRS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR..RRM....',
+  '.MM....MM....',
+  '.MM....MM....',
+  'MMM...MM.....',
+  'MM.....MM....',
+  'MM.....MM....',
+  'MM.....MM....',
+  'MM.....MM....',
+]
+var MARIO_BIG_JUMP = [
+  '...RRRRRR....',
+  '..RRRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSMM...',
+  '.MSSSSSSSM...',
+  '.MSSSSSSSM...',
+  '.MMSSSSSMM...',
+  '..MMMMMMM....',
+  'MRRRRRRRRRM..',
+  'MRRRRRRRRRM..',
+  'SRRRRRRRRRS..',
+  'SSRRRRRRRSS..',
+  '.SRRRRRRRS...',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '..RRRRRRR....',
+  '.MRR....RRM..',
+  '.MRR....RRM..',
+  '.MMM....MMM..',
+  'MMM......MMM.',
+  'MM........MM.',
+  'MM........MM.',
+  'MM........MM.',
+  'MM........MM.',
+]
+var MARIO_BIG_DEAD = [
+  '.............',
+  '.............',
+  '.............',
+  '....RRRRR....',
+  '...RRRRRRR...',
+  '..MMMMMMMM...',
+  '.MMSSSSSSMM..',
+  '.MSSSSSSSSM..',
+  '.MSSSSSSSSM..',
+  '.MMSSSSSSMM..',
+  '..MMMMMMMM...',
+  '.MRRRRRRRM...',
+  'MRRRRRRRRRM..',
+  'MRRRRRRRRRM..',
+  '.MMM...MMM...',
+  'MMM.....MMM..',
+  'MM.......MM..',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+  '.............',
+]
+
+/* 道具: 蘑菇/1UP/火焰花/星星 (12x12 => 24x24) */
+var ITEM_MUSHROOM = [
+  '...RRRRRR...',
+  '..RRRRRRRR..',
+  '.RRWWWWRRRR.',
+  '.RRWWWWRRRR.',
+  '.RRRRRRRRRR.',
+  '.RRRRRRRRRR.',
+  '.SSSSSSSSSS.',
+  '.SSSSSSSSSS.',
+  '.MMSSSSSSMM.',
+  '.MM..MM..MM.',
+  '.MM..MM..MM.',
+  '............',
+]
+var ITEM_MUSHROOM_1UP = [
+  '...LLLLLL...',
+  '..LLLLLLLL..',
+  '.LLWWWWLLLL.',
+  '.LLWWWWLLLL.',
+  '.LLLLLLLLLL.',
+  '.LLLLLLLLLL.',
+  '.SSSSSSSSSS.',
+  '.SSSSSSSSSS.',
+  '.MMSSSSSSMM.',
+  '.MM..MM..MM.',
+  '.MM..MM..MM.',
+  '............',
+]
+var ITEM_FLOWER = [
+  '...OOOOOO...',
+  '..OOORROO...',
+  '.OORRRRROO..',
+  '.OORR..RRO..',
+  '.OORR..RRO..',
+  '..OOO..OO...',
+  '...OO..OO...',
+  '...LL..LL...',
+  '..LLLLLLLL..',
+  '..LL....LL..',
+  '.LL......LL.',
+  '............',
+]
+var ITEM_STAR = [
+  '....YYYY....',
+  '...YYYYYY...',
+  '..YYYYYYYY..',
+  '..YYYYYYYY..',
+  '...YYYYYY...',
+  '..Y.YYYY.Y..',
+  '.Y..YYYY..Y.',
+  '.Y..YYYY..Y.',
+  '.Y..YYYY..Y.',
+  '..Y.YY.YY...',
+  '...Y....Y...',
+  '............',
+]
+
+/* 库巴 (BOSS) 12x12 => 24x24 */
+var KOOPA = [
+  '..GGGGGGGG..',
+  '.GGGGGGGGGG.',
+  '.GGGGGGGGGG.',
+  '.GGRRGGGGRG.',
+  '.GGRRGGGGRG.',
+  '.GGGGGGGGGG.',
+  '.GGGGGGGGGG.',
+  '..GGGGGGGG..',
+  '.DD.DDDD.DD.',
+  '.DD.DDDD.DD.',
+  '..DD....DD..',
+  '..DD....DD..',
+]
+
 var GOOMBA = [
   '....MMMM....',
   '...MMMMMM...',
@@ -161,7 +347,7 @@ var GOOMBA_WALK = [
 
 /* ---------- 工具 ---------- */
 
-function drawSprite(ctx, sprite, scale, px, py, flip) {
+function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
   var h = sprite.length
   var w = sprite[0].length
   var px0 = Math.round(px)
@@ -173,6 +359,10 @@ function drawSprite(ctx, sprite, scale, px, py, flip) {
       if (ch === '.' || ch === ' ') continue
       var color = SPRITE_MAP[ch]
       if (!color) continue
+      if (colorMap) {
+        var rep = typeof colorMap === 'function' ? colorMap(color, ch) : colorMap[color]
+        if (rep) color = rep
+      }
       var sx = flip ? px0 + (w - 1 - c) * scale : px0 + c * scale
       var sy = py0 + r * scale
       ctx.fillStyle = color
@@ -209,6 +399,10 @@ Game.prototype.reset = function () {
   this.enemies = []
   this.coinItems = []
   this.particles = []
+  this.powerups = []
+  this.fireballs = []
+  this.axe = null
+  this.boss = null
   this.player = null
   this.flagX = 0
   this.castleX = 0
@@ -239,7 +433,7 @@ Game.prototype.loadLevel = function (levelIdx) {
     } else if (s.t === 'b') {
       this.tiles.push({ type: 'brick', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'q') {
-      this.tiles.push({ type: 'qblock', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE, used: false })
+      this.tiles.push({ type: 'qblock', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE, used: false, content: s.content || 'coin' })
     } else if (s.t === 'h') {
       this.tiles.push({ type: 'hard', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'p') {
@@ -262,6 +456,21 @@ Game.prototype.loadLevel = function (levelIdx) {
         squashT: 0,
         walk: 0,
       })
+    } else if (s.t === 'boss') {
+      /* 库巴 BOSS (4x4 瓦片) */
+      this.boss = {
+        x: s.x * TILE,
+        y: s.y * TILE,
+        w: 4 * TILE,
+        h: 4 * TILE,
+        vx: -ENEMY_SPD * 1.5,
+        alive: true,
+        walk: 0,
+        fireT: 0,
+      }
+    } else if (s.t === 'x') {
+      /* 斧头 (断桥通关) */
+      this.axe = { x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE, taken: false, t: 0 }
     } else if (s.t === 'f') {
       this.flagX = s.x * TILE
     } else if (s.t === 'k') {
@@ -279,18 +488,52 @@ Game.prototype.loadLevel = function (levelIdx) {
         onGround: false,
         facing: 1,
         walk: 0,
+        power: 'small', // small | super | fire
+        starTimer: 0,
       }
       this.camX = Math.max(0, sx - 200)
     }
   }
   if (!this.player) {
-    this.player = { x: 2 * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE, vx: 0, vy: 0, onGround: false, facing: 1, walk: 0 }
+    this.player = { x: 2 * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE, vx: 0, vy: 0, onGround: false, facing: 1, walk: 0, power: 'small', starTimer: 0 }
   }
   this.playerBottomPrev = this.player.y + this.player.h
   this.time = Math.max(200, 300 - (levelIdx - 1) * 30)
   this.invuln = 0
+  /* 读档恢复变身状态 */
+  if (this.resumePower && this.resumePower !== 'small') {
+    this.setPower(this.resumePower)
+    if (this.resumeStar > 0) this.player.starTimer = this.resumeStar * 1000
+  }
+  this.resumePower = null
+  this.resumeStar = 0
   this.state = 'playing'
   this.stateTimer = 0
+}
+
+/* 变身: small -> super -> fire, 切换碰撞框与精灵 */
+Game.prototype.setPower = function (next) {
+  var p = this.player
+  if (!p) return
+  if (next === p.power) return
+  /* 变大: 底部对齐, 高度翻倍 */
+  if (next === 'super' || next === 'fire') {
+    if (p.power === 'small') {
+      var bottom = p.y + p.h
+      p.h = TILE * 2
+      p.w = TILE
+      p.y = bottom - p.h
+    }
+  } else if (next === 'small') {
+    if (p.power !== 'small') {
+      var b2 = p.y + p.h
+      p.h = TILE
+      p.w = TILE
+      p.y = b2 - p.h
+    }
+  }
+  p.power = next
+  if (this.hooks.onPower) this.hooks.onPower({ power: next })
 }
 
 /* 开始: 按存档/新局状态 */
@@ -300,17 +543,50 @@ Game.prototype.start = function (state) {
   this.score = state.score || 0
   this.coins = state.coins || 0
   this.lives = state.lives || 3
+  this.resumePower = state.power || 'small'
+  this.resumeStar = state.starTimer || 0
   this.loadLevel(this.level)
 }
 
 Game.prototype.getState = function () {
-  return { level: this.level, score: this.score, coins: this.coins, lives: this.lives, time: Math.max(0, Math.round(this.time)) }
+  var p = this.player
+  return {
+    level: this.level,
+    score: this.score,
+    coins: this.coins,
+    lives: this.lives,
+    time: Math.max(0, Math.round(this.time)),
+    power: p ? p.power : 'small',
+    starTimer: p ? Math.max(0, Math.round((p.starTimer || 0) / 1000)) : 0,
+  }
 }
 
 Game.prototype.setInput = function (dir, on) {
   if (dir === 'left') this.input.left = on
   else if (dir === 'right') this.input.right = on
   else if (dir === 'jump') this.input.jump = on
+  else if (dir === 'fire') {
+    /* 火焰形态: 发火球 */
+    if (on && this.state === 'playing') this.fireFireball()
+  }
+}
+
+/* 发射火球 (fire 形态, 最多 2 颗) */
+Game.prototype.fireFireball = function () {
+  var p = this.player
+  if (!p || p.power !== 'fire') return
+  if (this.fireballs.length >= 2) return
+  var f = {
+    x: p.facing > 0 ? p.x + p.w : p.x - TILE,
+    y: p.y + 8,
+    w: TILE,
+    h: TILE,
+    vx: p.facing * 3.6,
+    vy: -2.4,
+    alive: true,
+    t: 0,
+  }
+  this.fireballs.push(f)
 }
 
 /* ---------- 玩家物理 ---------- */
@@ -368,32 +644,69 @@ Game.prototype.movePlayerY = function () {
   }
 }
 
-/* 顶砖块: 问号出金币, 砖块顶碎 */
+/* 顶砖块: 问号出金币/道具, 砖块 super 顶碎/small 顶弹 */
+Game.prototype.spawnPowerup = function (kind, tx, ty) {
+  /* 道具出生在块上方; 蘑菇/星/1UP 弹起后水平移动, 花固定 */
+  var isStatic = kind === 'flower'
+  this.powerups.push({
+    kind: kind,
+    x: tx,
+    y: ty - TILE,
+    w: TILE,
+    h: TILE,
+    vx: isStatic ? 0 : (kind === 'star' ? 2.4 : 1.3),
+    vy: isStatic ? 0 : -5,
+    active: true,
+    t: 0,
+  })
+  this.score += 200
+}
+
 Game.prototype.bonkTile = function (tile) {
   if (tile.type === 'qblock' && !tile.used) {
     tile.used = true
-    this.score += 200
-    this.coins++
-    if (this.coins % 100 === 0) this.lives++
-    this.particles.push({
-      kind: 'coinpop',
-      x: tile.x + TILE / 2,
-      y: tile.y - TILE / 2,
-      vy: -6,
-      t: 0,
-    })
+    var content = tile.content || 'coin'
+    if (content === 'mushroom') {
+      this.spawnPowerup('mushroom', tile.x, tile.y)
+    } else if (content === 'flower') {
+      var p = this.player
+      if (p && (p.power === 'super' || p.power === 'fire')) {
+        this.spawnPowerup('flower', tile.x, tile.y)
+      } else {
+        /* small 顶花块只出金币 */
+        this.score += 200
+        this.coins++
+        if (this.coins % 100 === 0) this.lives++
+        this.particles.push({ kind: 'coinpop', x: tile.x + TILE / 2, y: tile.y - TILE / 2, vy: -6, t: 0 })
+      }
+    } else if (content === 'star') {
+      this.spawnPowerup('star', tile.x, tile.y)
+    } else if (content === '1up') {
+      this.spawnPowerup('1up', tile.x, tile.y)
+    } else {
+      this.score += 200
+      this.coins++
+      if (this.coins % 100 === 0) this.lives++
+      this.particles.push({ kind: 'coinpop', x: tile.x + TILE / 2, y: tile.y - TILE / 2, vy: -6, t: 0 })
+    }
   } else if (tile.type === 'brick') {
-    tile.dead = true
-    this.score += 50
-    for (var i = 0; i < 4; i++) {
-      this.particles.push({
-        kind: 'debris',
-        x: tile.x + (i % 2) * 8 + 4,
-        y: tile.y + Math.floor(i / 2) * 8 + 4,
-        vx: i % 2 === 0 ? -1.6 : 1.6,
-        vy: -5 - (i % 2) * 1.4,
-        t: 0,
-      })
+    var pw = this.player ? this.player.power : 'small'
+    if (!tile.dead && (pw === 'super' || pw === 'fire')) {
+      tile.dead = true
+      this.score += 50
+      for (var i = 0; i < 4; i++) {
+        this.particles.push({
+          kind: 'debris',
+          x: tile.x + (i % 2) * 8 + 4,
+          y: tile.y + Math.floor(i / 2) * 8 + 4,
+          vx: i % 2 === 0 ? -1.6 : 1.6,
+          vy: -5 - (i % 2) * 1.4,
+          t: 0,
+        })
+      }
+    } else if (!tile.dead) {
+      /* small 顶砖只弹 */
+      tile.bumpT = 0.2
     }
   }
 }
@@ -443,30 +756,84 @@ Game.prototype.updateEnemies = function (dt) {
     e.walk += dt / 90
 
     /* 与玩家碰撞 */
-    if (this.invuln > 0) {
-      keep.push(e)
-      continue
-    }
     if (rectsHit(p.x, p.y, p.w, p.h, e.x, e.y, e.w, e.h)) {
-      /* 踩踏判定: 玩家上一帧底部在敌人顶部(含 6px 容差)之上且正在下落.
-         不能用当前穿透深度 p.y+p.h-e.y —— 玩家落地后穿透恒为 24px, 会永远判成撞死 */
-      var stomping = p.vy > 0 && this.playerBottomPrev <= e.y + 6
-      if (stomping) {
+      if (p.starTimer > 0) {
+        /* 无敌星秒杀 */
         e.alive = false
         e.squashed = true
         e.squashT = 0.5
-        p.vy = STOMP_V
-        p.onGround = false
-        this.score += 100
-      } else {
-        this.killPlayer(false)
-        keep.push(e)
-        continue
+        this.score += 200
+      } else if (this.invuln <= 0) {
+        var stomping = p.vy > 0 && this.playerBottomPrev <= e.y + 6
+        if (stomping) {
+          e.alive = false
+          e.squashed = true
+          e.squashT = 0.5
+          p.vy = STOMP_V
+          p.onGround = false
+          this.score += 100
+        } else {
+          this.hurtPlayer()
+          keep.push(e)
+          continue
+        }
       }
     }
     keep.push(e)
   }
   this.enemies = keep
+}
+
+/* 库巴 BOSS 更新 */
+Game.prototype.updateBoss = function (dt) {
+  var b = this.boss
+  var p = this.player
+  if (!b || !b.alive) return
+  /* 巡逻: 撞墙/无地面掉头 */
+  b.x += b.vx * (dt / 16.667)
+  var aheadX = b.vx > 0 ? b.x + b.w + 2 : b.x - 2
+  var wall = this.collideTiles(aheadX, b.y + 4, 2, b.h - 8)
+  var floor = this.collideTiles(aheadX, b.y + b.h + 2, 4, 6)
+  if (wall || !floor) {
+    b.x -= b.vx * (dt / 16.667)
+    b.vx = -b.vx
+  }
+  b.walk += dt / 60
+  /* 喷火 */
+  b.fireT -= dt
+  if (b.fireT <= 0) {
+    b.fireT = 2200
+    var dir = p.x > b.x ? 1 : -1
+    this.fireballs.push({
+      x: b.x + b.w / 2 - TILE / 2,
+      y: b.y + 12,
+      w: TILE,
+      h: TILE,
+      vx: dir * 2.2,
+      vy: -1.2,
+      alive: true,
+      t: 0,
+      enemy: true,
+    })
+  }
+  /* 与玩家碰撞 */
+  if (rectsHit(p.x, p.y, p.w, p.h, b.x, b.y, b.w, b.h)) {
+    if (p.starTimer > 0) {
+      this.hurtBoss(3)
+      p.vy = STOMP_V
+      p.onGround = false
+      return
+    }
+    if (this.invuln > 0) return
+    var stomping = p.vy > 0 && this.playerBottomPrev <= b.y + 6
+    if (stomping) {
+      /* 踩库巴普通形态无效, 弹开 */
+      p.vy = STOMP_V
+      p.onGround = false
+    } else {
+      this.hurtPlayer()
+    }
+  }
 }
 
 /* ---------- 道具/粒子 ---------- */
@@ -484,6 +851,150 @@ Game.prototype.updateItems = function (dt) {
       if (this.coins % 100 === 0) this.lives++
     }
   }
+
+  /* 强化道具 */
+  var keepPu = []
+  for (var k = 0; k < this.powerups.length; k++) {
+    var u = this.powerups[k]
+    if (!u.active) continue
+    u.t += dt / 16.667
+    if (u.kind !== 'flower') {
+      /* 重力 + 水平移动 + 撞墙/落地 */
+      u.vy = Math.min(u.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+      var steps = Math.abs(u.vy)
+      var dirY = u.vy > 0 ? 1 : -1
+      var guardY = 0
+      while (steps > 0 && guardY < 6) {
+        var dY = Math.min(steps, 4)
+        u.y += dirY * dY
+        steps -= dY
+        guardY++
+        var hitY = this.collideTiles(u.x, u.y, u.w, u.h)
+        if (hitY) {
+          if (dirY > 0) { u.y = hitY.y - u.h; u.vy = 0 }
+          else { u.y = hitY.y + hitY.h; u.vy = 0.4 }
+          break
+        }
+      }
+      var stX = Math.abs(u.vx)
+      var dirX = u.vx > 0 ? 1 : -1
+      var guardX = 0
+      while (stX > 0 && guardX < 6) {
+        var dX = Math.min(stX, 4)
+        u.x += dirX * dX
+        stX -= dX
+        guardX++
+        var hitX = this.collideTiles(u.x, u.y, u.w, u.h)
+        if (hitX) {
+          if (dirX > 0) u.x = hitX.x - u.w
+          else u.x = hitX.x + hitX.w
+          u.vx = -u.vx
+          break
+        }
+      }
+      if (u.x < -TILE || u.x > this.worldW + TILE || u.y > this.worldH + 120) continue
+    }
+    /* 拾取 */
+    if (rectsHit(p.x, p.y, p.w, p.h, u.x, u.y, u.w, u.h)) {
+      u.active = false
+      if (u.kind === 'mushroom') {
+        if (p.power === 'small') this.setPower('super')
+        this.score += 1000
+        this.particles.push({ kind: 'text', x: p.x, y: p.y - 8, t: 0 })
+      } else if (u.kind === 'flower') {
+        if (p.power === 'small') this.setPower('super')
+        this.setPower('fire')
+        this.score += 1000
+        this.particles.push({ kind: 'text', x: p.x, y: p.y - 8, t: 0 })
+      } else if (u.kind === 'star') {
+        p.starTimer = 10000
+        this.score += 1000
+      } else if (u.kind === '1up') {
+        this.lives++
+        this.score += 1000
+      }
+      continue
+    }
+    keepPu.push(u)
+  }
+  this.powerups = keepPu
+
+  /* 火球 */
+  var keepFb = []
+  for (var m = 0; m < this.fireballs.length; m++) {
+    var f = this.fireballs[m]
+    if (!f.alive) continue
+    f.t += dt / 16.667
+    if (f.enemy) {
+      /* 敌方火球 (库巴): 碰玩家受伤, 碰墙消失 */
+      if (rectsHit(f.x, f.y, f.w, f.h, p.x, p.y, p.w, p.h)) {
+        this.hurtPlayer()
+        f.alive = false
+        continue
+      }
+      f.vy = Math.min(f.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+      f.x += f.vx * (dt / 16.667)
+      f.y += f.vy * (dt / 16.667)
+      if (this.collideTiles(f.x, f.y, f.w, f.h)) {
+        f.alive = false
+        continue
+      }
+      if (f.y > this.worldH + 80) {
+        f.alive = false
+        continue
+      }
+      keepFb.push(f)
+      continue
+    }
+    f.vy = Math.min(f.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+    /* 水平 */
+    f.x += f.vx * (dt / 16.667)
+    var hx = this.collideTiles(f.x, f.y, f.w, f.h)
+    if (hx) {
+      f.alive = false
+      continue
+    }
+    /* 垂直+弹跳 */
+    f.y += f.vy * (dt / 16.667)
+    var hy = this.collideTiles(f.x, f.y, f.w, f.h)
+    if (hy) {
+      if (f.vy > 0) {
+        f.y = hy.y - f.h
+        f.vy = -4.8
+      } else {
+        f.y = hy.y + hy.h
+        f.vy = 0.6
+      }
+    }
+    /* 与敌人 */
+    var killed = false
+    for (var n = 0; n < this.enemies.length; n++) {
+      var en = this.enemies[n]
+      if (!en.alive) continue
+      if (rectsHit(f.x, f.y, f.w, f.h, en.x, en.y, en.w, en.h)) {
+        en.alive = false
+        en.squashed = true
+        en.squashT = 0.4
+        this.score += 200
+        killed = true
+        break
+      }
+    }
+    if (killed) {
+      f.alive = false
+      continue
+    }
+    /* 与 boss */
+    if (this.boss && this.boss.alive && rectsHit(f.x, f.y, f.w, f.h, this.boss.x, this.boss.y, this.boss.w, this.boss.h)) {
+      f.alive = false
+      this.hurtBoss(1)
+      continue
+    }
+    if (f.x < -TILE || f.x > this.worldW + TILE || f.y > this.worldH + 80) continue
+    keepFb.push(f)
+  }
+  this.fireballs = keepFb
+
   var keep = []
   for (var j = 0; j < this.particles.length; j++) {
     var pt = this.particles[j]
@@ -503,6 +1014,30 @@ Game.prototype.updateItems = function (dt) {
     }
   }
   this.particles = keep
+}
+
+/* 库巴受伤/死亡 */
+Game.prototype.hurtBoss = function (dmg) {
+  var b = this.boss
+  if (!b || !b.alive) return
+  b.hp = (b.hp || 5) - dmg
+  if (b.hp <= 0) {
+    b.alive = false
+    this.score += 5000
+    this.particles.push({ kind: 'text', x: b.x, y: b.y - 8, t: 0 })
+  }
+}
+
+/* 玩家受伤: super/fire 降级, small 死亡 */
+Game.prototype.hurtPlayer = function () {
+  var p = this.player
+  if (this.invuln > 0 || p.starTimer > 0) return
+  if (p.power === 'super' || p.power === 'fire') {
+    this.setPower('small')
+    this.invuln = 1500
+  } else {
+    this.killPlayer(false)
+  }
 }
 
 /* ---------- 死亡/过关 ---------- */
@@ -599,10 +1134,34 @@ Game.prototype.tick = function (dtMs) {
 
   if (p.onGround && p.vx !== 0) p.walk += dt / 110
   if (this.invuln > 0) this.invuln -= dt
+  /* 砖块抖动递减 */
+  for (var bi = 0; bi < this.tiles.length; bi++) {
+    if (this.tiles[bi].bumpT > 0) this.tiles[bi].bumpT -= dt / 1000
+  }
 
   /* 敌人/道具 */
   this.updateEnemies(dt)
   this.updateItems(dt)
+  if (this.boss) this.updateBoss(dt)
+
+  /* 无敌星倒计时 */
+  if (p.starTimer > 0) {
+    p.starTimer -= dt
+    if (p.starTimer < 0) p.starTimer = 0
+  }
+
+  /* 斧头拾取 → 断桥通关 */
+  if (this.axe && !this.axe.taken && this.state === 'playing' &&
+      rectsHit(p.x, p.y, p.w, p.h, this.axe.x, this.axe.y, this.axe.w, this.axe.h)) {
+    this.axe.taken = true
+    if (this.boss) {
+      this.boss.alive = false
+      this.score += 5000
+    }
+    this.score += 500
+    this.state = 'clear'
+    this.stateTimer = 0
+  }
 
   /* 相机 */
   var target = p.x - 320
@@ -648,6 +1207,53 @@ Game.prototype.render = function () {
     }
     var spr = Math.floor(e.walk) % 2 === 0 ? GOOMBA : GOOMBA_WALK
     drawSprite(ctx, spr, 2, e.x - cam, e.y, false)
+  }
+
+  /* 强化道具 */
+  for (var u = 0; u < this.powerups.length; u++) {
+    var pu = this.powerups[u]
+    if (!pu.active || pu.x + pu.w < cam || pu.x > cam + VIEW_W) continue
+    var puSpr = pu.kind === 'mushroom' ? ITEM_MUSHROOM :
+      pu.kind === '1up' ? ITEM_MUSHROOM_1UP :
+      pu.kind === 'flower' ? ITEM_FLOWER : ITEM_STAR
+    drawSprite(ctx, puSpr, 2, pu.x - cam, pu.y, false)
+  }
+
+  /* 火球 */
+  for (var fb = 0; fb < this.fireballs.length; fb++) {
+    var f = this.fireballs[fb]
+    if (!f.alive || f.x + f.w < cam || f.x > cam + VIEW_W) continue
+    ctx.fillStyle = C_ORANGE
+    ctx.fillRect(f.x - cam + 2, f.y + 2, f.w - 4, f.h - 4)
+    ctx.fillStyle = C_COIN
+    ctx.fillRect(f.x - cam + 5, f.y + 5, f.w - 10, f.h - 10)
+  }
+
+  /* 库巴 BOSS */
+  if (this.boss && this.boss.alive) {
+    var b = this.boss
+    if (b.x + b.w > cam && b.x < cam + VIEW_W) {
+      drawSprite(ctx, KOOPA, 4, b.x - cam, b.y, b.vx > 0)
+    }
+  }
+
+  /* 斧头 */
+  if (this.axe && !this.axe.taken) {
+    var ax = this.axe
+    if (ax.x + ax.w > cam && ax.x < cam + VIEW_W) {
+      ctx.fillStyle = '#9aa0ae'
+      ctx.fillRect(ax.x - cam, ax.y + 6, 5, 18)
+      ctx.fillRect(ax.x - cam + 14, ax.y + 6, 5, 18)
+      ctx.fillStyle = '#e8a05a'
+      ctx.beginPath()
+      ctx.moveTo(ax.x - cam, ax.y + 6)
+      ctx.lineTo(ax.x - cam + 4, ax.y - 2)
+      ctx.lineTo(ax.x - cam + 16, ax.y + 2)
+      ctx.lineTo(ax.x - cam + 16, ax.y + 10)
+      ctx.lineTo(ax.x - cam + 4, ax.y + 6)
+      ctx.closePath()
+      ctx.fill()
+    }
   }
 
   this.renderPlayer(ctx, cam)
@@ -718,15 +1324,16 @@ Game.prototype.renderTiles = function (ctx, cam) {
         ctx.fillRect(gx + 4, t.y + 18 + ((g % 2) * 10), TILE - 8, 6)
       }
     } else if (t.type === 'brick') {
+      var bY = t.bumpT > 0 ? t.y - Math.sin(t.bumpT * 30) * 4 : t.y
       ctx.fillStyle = C_BRICK
-      ctx.fillRect(sx, t.y, TILE, TILE)
+      ctx.fillRect(sx, bY, TILE, TILE)
       ctx.fillStyle = C_BRICK_DARK
-      ctx.fillRect(sx, t.y + TILE - 2, TILE, 2)
-      ctx.fillRect(sx + TILE - 2, t.y, 2, TILE)
-      ctx.fillRect(sx + TILE / 2 - 1, t.y + 8, 2, TILE - 12)
+      ctx.fillRect(sx, bY + TILE - 2, TILE, 2)
+      ctx.fillRect(sx + TILE - 2, bY, 2, TILE)
+      ctx.fillRect(sx + TILE / 2 - 1, bY + 8, 2, TILE - 12)
       ctx.fillStyle = C_BRICK_LIGHT
-      ctx.fillRect(sx, t.y, TILE, 2)
-      ctx.fillRect(sx, t.y, 2, TILE)
+      ctx.fillRect(sx, bY, TILE, 2)
+      ctx.fillRect(sx, bY, 2, TILE)
     } else if (t.type === 'qblock') {
       var base = t.used ? C_HARD : C_QB
       var dark = t.used ? C_HARD_DARK : C_QB_DARK
@@ -836,15 +1443,30 @@ Game.prototype.renderPlayer = function (ctx, cam) {
   if (this.state === 'idle') return
   /* 无敌闪烁 */
   if (this.invuln > 0 && Math.floor(this.invuln / 120) % 2 === 0) return
-  var spr = MARIO_STAND
+  var big = p.power === 'super' || p.power === 'fire'
+  var spr = big ? MARIO_BIG_STAND : MARIO_STAND
   if (this.state === 'dead') {
-    spr = MARIO_DEAD
+    spr = big ? MARIO_BIG_DEAD : MARIO_DEAD
   } else if (!p.onGround) {
-    spr = MARIO_JUMP
+    spr = big ? MARIO_BIG_JUMP : MARIO_JUMP
   } else if (p.vx !== 0) {
-    spr = Math.floor(p.walk) % 2 === 0 ? MARIO_WALK : MARIO_STAND
+    if (big) spr = Math.floor(p.walk) % 2 === 0 ? MARIO_BIG_WALK : MARIO_BIG_STAND
+    else spr = Math.floor(p.walk) % 2 === 0 ? MARIO_WALK : MARIO_STAND
   }
-  drawSprite(ctx, spr, 2, p.x - cam, p.y, p.facing < 0)
+  /* 无敌星: 彩虹闪烁; 火焰: 红白换装 */
+  var colorMap = null
+  if (p.starTimer > 0) {
+    var hue = Math.floor(this.animT / 100) % 4
+    var palette = [C_COIN, C_RED, C_LIME, C_BLUE]
+    var col = palette[hue]
+    colorMap = function (color, ch) {
+      if (ch === 'R' || ch === 'M' || ch === 'S') return col
+      return color
+    }
+  } else if (p.power === 'fire') {
+    colorMap = { '#e52521': C_FIRE }
+  }
+  drawSprite(ctx, spr, 2, p.x - cam, p.y, p.facing < 0, colorMap)
 }
 
 Game.prototype.drawCoin = function (ctx, cx, cy, t) {
@@ -874,7 +1496,7 @@ Game.prototype.renderParticles = function (ctx, cam) {
       ctx.fillStyle = C_WHITE
       ctx.font = 'bold 14px sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText(pt.text, sx, pt.y)
+      ctx.fillText(pt.text || '1000', sx, pt.y)
     }
   }
 }
@@ -894,6 +1516,15 @@ Game.prototype.renderHUD = function (ctx) {
   /* 生命 (马里奥小头像) */
   this.hudText(ctx, 'x' + this.lives, 96, 26)
   drawSprite(ctx, MARIO_STAND, 1, 52, 10, false)
+  /* 强化状态 */
+  var p = this.player
+  if (p && p.power !== 'small') {
+    var pwr = p.starTimer > 0 ? 'STAR ' + Math.ceil(p.starTimer / 1000) :
+      p.power === 'fire' ? 'FIRE' : 'SUPER'
+    ctx.textAlign = 'right'
+    this.hudText(ctx, pwr, 936, 100)
+    ctx.textAlign = 'left'
+  }
 }
 
 Game.prototype.hudText = function (ctx, text, x, y) {
@@ -929,6 +1560,23 @@ Game.prototype.renderControls = function (ctx) {
   ctx.textAlign = 'center'
   ctx.fillText('JUMP', 800, VIEW_H - 18)
   ctx.textAlign = 'left'
+  /* fire 形态提示 (右上角热区按钮) */
+  var pw = this.player ? this.player.power : 'small'
+  if (pw === 'fire') {
+    var fa = 0.6 + pulse * 0.3
+    ctx.fillStyle = 'rgba(255,180,40,' + fa + ')'
+    ctx.strokeStyle = 'rgba(255,225,130,' + fa + ')'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.rect(832, 50, 104, 56)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#3a2a00'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('FIRE', 884, 86)
+    ctx.textAlign = 'left'
+  }
 }
 
 Game.prototype.arrow = function (ctx, cx, cy, dir, alpha) {

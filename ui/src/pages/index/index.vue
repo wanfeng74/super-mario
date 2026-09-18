@@ -21,9 +21,28 @@
         >
         <text class="slot-sub" v-else>空存档 · 点击开始新游戏</text>
       </div>
+      <div class="slot about-slot" @touchstart="goAbout">
+        <text class="slot-title">关于</text>
+      </div>
       <text class="tip" v-if="persistOk === false">存档不可用（本次运行仅内存保存）</text>
-      <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃</text>
-      <text class="tip">游戏时点击右上角暂停</text>
+      <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃（支持多指同按）</text>
+      <text class="tip">吃到火焰花后右上角出现 FIRE 按钮 · 游戏时点击左上角暂停</text>
+    </div>
+
+    <!-- ===== 关于页 ===== -->
+    <div class="title-layer" v-if="screen === 'about'">
+      <text class="pause-title">关于</text>
+      <div class="about-box">
+        <text class="about-line">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
+        <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
+        <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 原野 / 1-4 库巴城堡</text>
+        <text class="about-line">强化道具：超级蘑菇（变大）/ 火焰花（火球）/ 无敌星 / 1UP</text>
+        <text class="about-line">收集金币、踩扁敌人、抵达旗杆通关；吃到蘑菇后可以顶碎砖块</text>
+        <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
+      </div>
+      <div class="slot" @touchstart="backFromAbout">
+        <text class="slot-title">返回</text>
+      </div>
     </div>
 
     <!-- ===== 暂停菜单 ===== -->
@@ -59,17 +78,20 @@
 <script>
 import { createGame } from '../../services/game/engine.js'
 import { loadSlots, loadSlot, saveSlot, clearSlot, persistAvailable } from '../../services/save.js'
+import { APP_VERSION } from '../../services/version.js'
 
 export default {
   name: 'index',
   data() {
     return {
-      screen: 'title', // title | game | paused | gameover
+      screen: 'title', // title | game | paused | gameover | about
       slots: [],
       curSlot: -1,
       saveMsg: '',
       persistOk: true,
-      gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300 },
+      version: APP_VERSION,
+      _touchZones: {},
+      gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
   },
   methods: {
@@ -187,7 +209,7 @@ export default {
       }
       this.curSlot = s.idx
       var self = this
-      var fresh = { level: 1, score: 0, coins: 0, lives: 3, time: 300 }
+      var fresh = { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' }
       loadSlot(s.idx).then(function (st) {
         if (st.empty) st = fresh
         self.gameState = {
@@ -196,6 +218,7 @@ export default {
           coins: st.coins,
           lives: st.lives,
           time: st.time,
+          power: st.power || 'small',
         }
         try {
           self._game.start(st)
@@ -246,6 +269,16 @@ export default {
       this.curSlot = -1
       this.refreshSlots()
     },
+    goAbout() {
+      if (this.screen !== 'title') return
+      this.stopLoop()
+      this.screen = 'about'
+    },
+    backFromAbout() {
+      if (this.screen !== 'about') return
+      this.screen = 'title'
+      this.refreshSlots()
+    },
 
     /* ---- 游戏循环 ---- */
     startLoop() {
@@ -271,42 +304,93 @@ export default {
       }
     },
 
-    /* ---- 触摸输入: 三段触摸区 ---- */
+    /* ---- 触摸输入: 多指跟踪, 方向+跳跃可同时按住 ---- */
+    /* 热区: 左<320 左移 | 320-640 右移 | >=640 跳跃; 右上角 FIRE 按钮 (火焰形态)
+       左上角 x>860 y<46 暂停 */
     onTouchStart(ev) {
-      var pt = this.touchPoint(ev)
-      if (!pt) return
       if (this.screen !== 'game') return
-      // 右上角暂停热区
-      if (pt.y < 46 && pt.x > 860) {
-        this.pauseGame()
-        return
+      var ts = ev.touches && ev.touches.length > 0 ? ev.touches : ev.changedTouches || []
+      for (var i = 0; i < ts.length; i++) {
+        var t = ts[i]
+        var pt = this.pointOf(t)
+        if (!pt) continue
+        if (pt.y < 46 && pt.x > 860) {
+          this.pauseGame()
+          continue
+        }
+        var id = t.identifier != null ? t.identifier : 'p' + i
+        var zone = this.zoneOf(pt)
+        if (zone === 'fire') {
+          // 火球只按下瞬间发射一次
+          try {
+            this._game.setInput('fire', true)
+          } catch (e) {}
+          zone = 'none'
+        }
+        this._touchZones[id] = zone
       }
-      this.applyTouch(pt)
+      this.refreshTouchInput()
     },
     onTouchMove(ev) {
-      var pt = this.touchPoint(ev)
-      if (!pt || this.screen !== 'game') return
-      if (pt.y < 46 && pt.x > 860) return
-      this.applyTouch(pt)
+      if (this.screen !== 'game') return
+      var ts = ev.touches || []
+      for (var i = 0; i < ts.length; i++) {
+        var t = ts[i]
+        var id = t.identifier != null ? t.identifier : 'p' + i
+        if (this._touchZones[id] == null) continue
+        var pt = this.pointOf(t)
+        if (!pt) continue
+        if (pt.y < 46 && pt.x > 860) {
+          delete this._touchZones[id]
+          continue
+        }
+        var z = this.zoneOf(pt)
+        this._touchZones[id] = z === 'fire' ? 'none' : z
+      }
+      this.refreshTouchInput()
     },
     onTouchEnd(ev) {
-      if (this.screen !== 'game') return
-      this._game.setInput('left', false)
-      this._game.setInput('right', false)
-      this._game.setInput('jump', false)
-    },
-    applyTouch(pt) {
-      if (pt.x < 320) {
-        this._game.setInput('left', true)
-        this._game.setInput('right', false)
-        this._game.setInput('jump', false)
-      } else if (pt.x < 640) {
-        this._game.setInput('right', true)
-        this._game.setInput('left', false)
-        this._game.setInput('jump', false)
-      } else {
-        this._game.setInput('jump', true)
+      var ts = ev.changedTouches || []
+      for (var i = 0; i < ts.length; i++) {
+        var t = ts[i]
+        var id = t.identifier != null ? t.identifier : 'p' + i
+        delete this._touchZones[id]
       }
+      if (this.screen !== 'game') return
+      this.refreshTouchInput()
+    },
+    refreshTouchInput() {
+      if (!this._game) return
+      var left = false
+      var right = false
+      var jump = false
+      for (var id in this._touchZones) {
+        var z = this._touchZones[id]
+        if (z === 'left') left = true
+        else if (z === 'right') right = true
+        else if (z === 'jump') jump = true
+      }
+      this._game.setInput('left', left)
+      this._game.setInput('right', right)
+      this._game.setInput('jump', jump)
+    },
+    /* 热区判定 */
+    zoneOf(pt) {
+      var isFire = false
+      try {
+        isFire = this._game.getState().power === 'fire'
+      } catch (e) {}
+      if (pt.x < 320) return 'left'
+      if (pt.x < 640) return 'right'
+      if (isFire && pt.x >= 820 && pt.y >= 46 && pt.y < 112) return 'fire'
+      return 'jump'
+    },
+    pointOf(t) {
+      if (!t) return null
+      var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
+      var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
+      if (x == null || y == null) return null
+      return { x: x, y: y }
     },
     touchPoint(ev) {
       if (!ev) return null
@@ -405,6 +489,36 @@ export default {
   font-size: 30px;
   font-weight: bold;
   margin-bottom: 6px;
+}
+
+.about-slot {
+  width: 520px;
+  height: 34px;
+  margin-bottom: 4px;
+  background-color: rgba(30, 40, 80, 0.72);
+}
+
+.about-box {
+  width: 700px;
+  margin-bottom: 8px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 14px;
+  padding-right: 14px;
+  background-color: rgba(20, 20, 30, 0.72);
+  border-width: 2px;
+  border-color: #3169c7;
+  border-style: solid;
+  border-radius: 8px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.about-line {
+  color: #e8ecf8;
+  font-size: 13px;
+  line-height: 19px;
 }
 
 .tip {
