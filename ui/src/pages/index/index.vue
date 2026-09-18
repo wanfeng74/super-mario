@@ -33,14 +33,42 @@
     <div class="title-layer" v-if="screen === 'about'">
       <text class="pause-title">关于</text>
       <div class="about-box">
-        <text class="about-line">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
+        <text class="about-line" @touchstart="tapVersion">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
         <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
         <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 原野 / 1-4 库巴城堡</text>
         <text class="about-line">强化道具：超级蘑菇（变大）/ 火焰花（火球）/ 无敌星 / 1UP</text>
         <text class="about-line">收集金币、踩扁敌人、抵达旗杆通关；吃到蘑菇后可以顶碎砖块</text>
         <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
+        <text class="about-debug-hint" v-if="debugMode">调试模式已开启（连点上方版本号进入设置）</text>
       </div>
       <div class="slot" @touchstart="backFromAbout">
+        <text class="slot-title">返回</text>
+      </div>
+    </div>
+
+    <!-- ===== 调试模式 ===== -->
+    <div class="title-layer" v-if="screen === 'debug'">
+      <text class="pause-title debug-title">调试模式</text>
+      <text class="tip">你已进入调试模式 · 设置仅在本次运行生效</text>
+      <div class="debug-row">
+        <text class="debug-label">关卡</text>
+        <div
+          class="debug-chip"
+          v-for="lv in [1, 2, 3, 4]"
+          :key="lv"
+          :class="{ 'debug-chip-on': debugLevel === lv }"
+          @touchstart="pickDebugLevel(lv)"
+        >
+          <text class="debug-chip-text">1-{{ lv }}</text>
+        </div>
+      </div>
+      <div class="debug-row">
+        <text class="debug-label">无敌</text>
+        <div class="debug-chip" :class="{ 'debug-chip-on': debugStar }" @touchstart="toggleDebugStar">
+          <text class="debug-chip-text">{{ debugStar ? '开启' : '关闭' }}</text>
+        </div>
+      </div>
+      <div class="slot" @touchstart="backFromDebug">
         <text class="slot-title">返回</text>
       </div>
     </div>
@@ -84,12 +112,17 @@ export default {
   name: 'index',
   data() {
     return {
-      screen: 'title', // title | game | paused | gameover | about
+      screen: 'title', // title | game | paused | gameover | about | debug
       slots: [],
       curSlot: -1,
       saveMsg: '',
       persistOk: true,
       version: APP_VERSION,
+      debugMode: false,
+      debugLevel: 1,
+      debugStar: false,
+      _versionTaps: 0,
+      _versionTapTimer: 0,
       _touchZones: {},
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
@@ -212,6 +245,11 @@ export default {
       var fresh = { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' }
       loadSlot(s.idx).then(function (st) {
         if (st.empty) st = fresh
+        // 调试模式: 覆盖关卡/无敌
+        if (self.debugMode) {
+          st.level = self.debugLevel
+          st.time = 300
+        }
         self.gameState = {
           level: st.level,
           score: st.score,
@@ -223,6 +261,11 @@ export default {
         try {
           self._game.start(st)
         } catch (e) {}
+        if (self.debugMode && self.debugStar) {
+          try {
+            self._game.player.starTimer = 999999999 // 永久无敌
+          } catch (e) {}
+        }
         self.screen = 'game'
         self.saveMsg = ''
         self.startLoop()
@@ -278,6 +321,36 @@ export default {
       if (this.screen !== 'about') return
       this.screen = 'title'
       this.refreshSlots()
+    },
+    tapVersion() {
+      if (this.screen !== 'about') return
+      this._versionTaps++
+      if (this._versionTapTimer) {
+        clearTimeout(this._versionTapTimer)
+        this._versionTapTimer = 0
+      }
+      if (this._versionTaps >= 10) {
+        this._versionTaps = 0
+        this.debugMode = true
+        this.screen = 'debug'
+        return
+      }
+      this._versionTapTimer = setTimeout(() => {
+        this._versionTaps = 0
+        this._versionTapTimer = 0
+      }, 2000)
+    },
+    pickDebugLevel(lv) {
+      if (this.screen !== 'debug') return
+      this.debugLevel = lv
+    },
+    toggleDebugStar() {
+      if (this.screen !== 'debug') return
+      this.debugStar = !this.debugStar
+    },
+    backFromDebug() {
+      if (this.screen !== 'debug') return
+      this.screen = 'about'
     },
 
     /* ---- 游戏循环 ---- */
@@ -519,6 +592,57 @@ export default {
   color: #e8ecf8;
   font-size: 13px;
   line-height: 19px;
+}
+
+.about-debug-hint {
+  color: #ffd75e;
+  font-size: 12px;
+  line-height: 18px;
+  margin-top: 4px;
+}
+
+.debug-title {
+  color: #ff5a5a;
+}
+
+.debug-row {
+  width: 700px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 6px;
+}
+
+.debug-label {
+  color: #ffd75e;
+  font-size: 15px;
+  font-weight: bold;
+  margin-right: 12px;
+  width: 48px;
+}
+
+.debug-chip {
+  width: 76px;
+  height: 34px;
+  margin-right: 10px;
+  background-color: rgba(30, 40, 80, 0.72);
+  border-width: 2px;
+  border-color: #555f7a;
+  border-style: solid;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-chip-on {
+  border-color: #ffd75e;
+  background-color: rgba(120, 60, 10, 0.8);
+}
+
+.debug-chip-text {
+  color: #e8ecf8;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .tip {
