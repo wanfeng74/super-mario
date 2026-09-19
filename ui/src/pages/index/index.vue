@@ -586,7 +586,7 @@ export default {
 }
 
 .slot-card {
-  width: 290px;
+  width: 280px;
   height: 64px;
   margin-right: 12px;
   background-color: rgba(20, 20, 30, 0.72);
