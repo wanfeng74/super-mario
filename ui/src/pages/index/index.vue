@@ -552,7 +552,7 @@ export default {
 }
 
 .title-main {
-  width: 880px;
+  width: 900px;
   padding-top: 12px;
   padding-bottom: 12px;
   background-color: rgba(16, 22, 38, 0.92);

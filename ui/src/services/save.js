@@ -1,7 +1,9 @@
 /*
  * 游戏存档 (falcon jsapi.storage 持久化)。
  * 机制参考 youdao-hill-climb:
- *  - 存储 API: jsapi.storage.getStorage / setStorage (真机)
+ *  - 存储 API: $falcon.jsapi.storage.getStorage / setStorage (真机)
+ *    签名: storage.getStorage({key}, cb) / storage.setStorage({key, data}, cb)
+ *    cb(result), result.data 为读取值, result.error 表示失败 (回调/返回值均可能异步)
  *  - key 带格式版本号 (mario_save_v1), 数据结构变更时升级后缀兼容旧档
  *  - 浏览器预览回退 localStorage, 再无则内存兜底
  * 保留 3 个存档位, 单 key 存全部槽位。
@@ -38,6 +40,9 @@ function normalize(d) {
 /* ---- 存储后端探测: jsapi.storage > localStorage > null ---- */
 function jsapiObject() {
   try {
+    if (typeof $falcon !== 'undefined' && $falcon && $falcon.jsapi) return $falcon.jsapi
+  } catch (e) {}
+  try {
     if (typeof jsapi !== 'undefined' && jsapi) return jsapi
   } catch (e) {}
   try {
@@ -55,28 +60,95 @@ function storageBackend() {
   return null
 }
 
-function rawGet(key) {
-  var b = storageBackend()
-  if (b === 'jsapi') return jsapiObject().storage.getStorage(key)
-  if (b === 'local') return window.localStorage.getItem(key)
+/* 从 jsapi 回调/返回结果里提取字符串值 */
+function extractData(res) {
+  if (res == null) return null
+  if (typeof res === 'string') return res
+  if (res.error) return null
+  if (typeof res.data === 'string') return res.data
+  if (typeof res.result === 'string') return res.result
   return null
 }
 
+/* 异步读取, 统一返回 Promise<string|null> */
+function rawGet(key) {
+  var b = storageBackend()
+  if (b === 'jsapi') {
+    return new Promise(function (resolve) {
+      var storage = jsapiObject().storage
+      try {
+        var r = storage.getStorage({ key: key }, function (res) {
+          resolve(extractData(res))
+        })
+        if (r && typeof r.then === 'function') {
+          // Promise 风格 (异步)
+          r.then(function (res) {
+            resolve(extractData(res))
+          })
+        } else if (typeof r === 'string') {
+          // 同步直接返回字符串
+          resolve(r)
+        } else if (r != null && !r.error && typeof r === 'object') {
+          resolve(extractData(r))
+        }
+        // 若回调已同步触发, resolve 已完成, 后续调用无效
+      } catch (e) {
+        resolve(null)
+      }
+    })
+  }
+  if (b === 'local') {
+    try {
+      return Promise.resolve(window.localStorage.getItem(key))
+    } catch (e) {
+      return Promise.resolve(null)
+    }
+  }
+  return Promise.resolve(null)
+}
+
+/* 异步写入, 统一返回 Promise<boolean> */
 function rawSet(key, value) {
   var b = storageBackend()
-  if (b === 'jsapi') return jsapiObject().storage.setStorage(key, value)
-  if (b === 'local') {
-    window.localStorage.setItem(key, String(value))
-    return true
+  if (b === 'jsapi') {
+    return new Promise(function (resolve) {
+      var storage = jsapiObject().storage
+      try {
+        var r = storage.setStorage({ key: key, data: value }, function (res) {
+          resolve(!(res && res.error))
+        })
+        if (r && typeof r.then === 'function') {
+          r.then(function (res) {
+            resolve(!(res && res.error))
+          })
+        } else if (r === false) {
+          resolve(false)
+        } else if (typeof r === 'boolean' || typeof r === 'string') {
+          resolve(true)
+        } else if (r != null && r.error) {
+          resolve(false)
+        }
+        // 默认: 回调同步已 resolve 或返回 undefined -> 视为成功
+      } catch (e) {
+        resolve(false)
+      }
+    })
   }
-  return false
+  if (b === 'local') {
+    try {
+      window.localStorage.setItem(key, String(value))
+      return Promise.resolve(true)
+    } catch (e) {
+      return Promise.resolve(false)
+    }
+  }
+  return Promise.resolve(false)
 }
 
 function read() {
   if (_memory) return Promise.resolve(_memory)
-  var d = null
-  try {
-    var raw = rawGet(STORAGE_KEY)
+  return rawGet(STORAGE_KEY).then(function (raw) {
+    var d = null
     if (typeof raw === 'string' && raw) {
       try {
         d = JSON.parse(raw)
@@ -84,20 +156,14 @@ function read() {
         d = null
       }
     }
-  } catch (e) {
-    d = null
-  }
-  _memory = normalize(d)
-  return Promise.resolve(_memory)
+    _memory = normalize(d)
+    return _memory
+  })
 }
 
 function persist(db) {
   _memory = db
-  try {
-    return rawSet(STORAGE_KEY, JSON.stringify(db))
-  } catch (e) {
-    return false
-  }
+  return rawSet(STORAGE_KEY, JSON.stringify(db))
 }
 
 /* 读取全部存档槽 */
@@ -162,7 +228,7 @@ export function clearSlot(idx) {
   })
 }
 
-/* 存储是否可用 */
+/* 存储是否可用 (同步探测) */
 export function persistAvailable() {
   return storageBackend() !== null
 }
