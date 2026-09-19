@@ -16,21 +16,34 @@
       @click="onClickTap"
     ></canvas>
 
-    <!-- ===== 标题画面: 三个存档位 ===== -->
+    <!-- ===== 标题画面: Logo + 三存档位 ===== -->
     <div class="title-layer" v-if="screen === 'title'">
-      <div class="slot" v-for="s in slots" :key="s.idx" @touchstart="pickSlot(s)">
-        <text class="slot-title">存档 {{ s.idx + 1 }}</text>
-        <text class="slot-sub" v-if="!s.empty"
-          >WORLD {{ s.level }} · 分数 {{ s.score }} · 金币 x{{ s.coins }} · 生命 x{{ s.lives }}</text
-        >
-        <text class="slot-sub" v-else>空存档 · 点击开始新游戏</text>
+      <div class="title-main">
+        <text class="logo-title">超级马里奥</text>
+        <text class="logo-sub">蘑菇王国冒险 · 有道词典笔版</text>
+        <div class="slots-row">
+          <div
+            class="slot-card"
+            v-for="s in slots"
+            :key="s.idx"
+            :class="{ 'slot-card-last': s.idx === 2 }"
+            @touchstart="pickSlot(s)"
+          >
+            <text class="slot-card-title">存档 {{ s.idx + 1 }}</text>
+            <text class="slot-card-sub" v-if="!s.empty"
+              >第{{ s.level }}关 · {{ s.score }}分 · 金币{{ s.coins }} · 生命{{ s.lives }}</text
+            >
+            <text class="slot-card-sub" v-else>空存档 · 点击开始新游戏</text>
+          </div>
+        </div>
+        <div class="title-bottom">
+          <div class="title-about" @touchstart="goAbout">
+            <text class="title-about-text">关于</text>
+          </div>
+          <text class="tip" v-if="persistOk === false">存档不可用（本次运行仅内存保存）</text>
+          <text class="tip">左/中/右 = 移动/移动/跳跃 · 火焰花后右上角 FIRE · 右上角暂停</text>
+        </div>
       </div>
-      <div class="slot about-slot" @touchstart="goAbout">
-        <text class="slot-title">关于</text>
-      </div>
-      <text class="tip" v-if="persistOk === false">存档不可用（本次运行仅内存保存）</text>
-      <text class="tip">屏幕分三段触摸区：左侧左移 / 中间右移 / 右侧跳跃</text>
-      <text class="tip">吃到火焰花后右上角出现 FIRE 按钮 · 游戏时点击右上角暂停</text>
     </div>
 
     <!-- ===== 关于页 ===== -->
@@ -328,6 +341,7 @@ export default {
     goAbout() {
       if (this.screen !== 'title') return
       this.stopLoop()
+      this._aboutOpenedAt = Date.now()
       this.screen = 'about'
     },
     backFromAbout() {
@@ -337,6 +351,8 @@ export default {
     },
     enterDebug() {
       if (this.screen !== 'about') return
+      // 防误触: 刚通过「关于」按钮进入时, 忽略紧随的合成 click/tap
+      if (this._aboutOpenedAt && Date.now() - this._aboutOpenedAt < 600) return
       this.debugMode = true
       this.screen = 'debug'
     },
@@ -535,6 +551,95 @@ export default {
   padding-bottom: 4px;
 }
 
+.title-main {
+  width: 880px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background-color: rgba(16, 22, 38, 0.92);
+  border-width: 2px;
+  border-color: #ffd75e;
+  border-style: solid;
+  border-radius: 10px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-title {
+  color: #ffd75e;
+  font-size: 34px;
+  font-weight: bold;
+}
+
+.logo-sub {
+  color: #e8ecf8;
+  font-size: 12px;
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+
+.slots-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.slot-card {
+  width: 290px;
+  height: 64px;
+  margin-right: 12px;
+  background-color: rgba(20, 20, 30, 0.72);
+  border-width: 2px;
+  border-color: #ffd75e;
+  border-style: solid;
+  border-radius: 8px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.slot-card-last {
+  margin-right: 0;
+}
+
+.slot-card-title {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.slot-card-sub {
+  color: #ffd75e;
+  font-size: 11px;
+  line-height: 14px;
+  margin-top: 2px;
+}
+
+.title-bottom {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-about {
+  width: 130px;
+  height: 30px;
+  margin-right: 18px;
+  border-radius: 8px;
+  border-width: 2px;
+  border-color: #ffd75e;
+  background-color: rgba(58, 47, 20, 0.9);
+  align-items: center;
+  justify-content: center;
+}
+
+.title-about-text {
+  color: #ffd75e;
+  font-size: 14px;
+  font-weight: bold;
+}
+
 .slot {
   width: 520px;
   height: 42px;
@@ -571,13 +676,6 @@ export default {
   font-size: 30px;
   font-weight: bold;
   margin-bottom: 6px;
-}
-
-.about-slot {
-  width: 520px;
-  height: 34px;
-  margin-bottom: 4px;
-  background-color: rgba(30, 40, 80, 0.72);
 }
 
 .about-box {
