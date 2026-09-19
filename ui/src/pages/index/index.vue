@@ -39,10 +39,11 @@
       <div class="about-box">
         <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
         <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
-        <text class="about-line">关卡：1-1 草原 / 1-2 地下 / 1-3 台阶 / 1-4 库巴城堡</text>
-        <text class="about-line">　　　2-1 管道 / 2-2 地下 / 2-3 台阶 / 2-4 库巴城堡二</text>
-        <text class="about-line">强化道具：超级蘑菇（变大）/ 火焰花（火球）/ 无敌星 / 1UP</text>
-        <text class="about-line">收集金币、踩扁敌人、抵达旗杆通关；吃到蘑菇后可以顶碎砖块</text>
+        <text class="about-line">8 大世界 × 4 关 = 32 关完整通关</text>
+        <text class="about-line">敌人：栗子仔/绿龟/红龟/飞龟/刺龟/子弹比尔</text>
+        <text class="about-line">　　　墨鱼/跳跳鱼/锤子龟/云龟/硬壳虫</text>
+        <text class="about-line">陷阱：食人花/帕拉火球/火焰棒/岩浆</text>
+        <text class="about-line">强化道具：蘑菇（变大）/ 火焰花 / 无敌星 / 1UP</text>
         <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
         <div class="debug-btn" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
           <text class="debug-btn-text">调试模式</text>
@@ -57,11 +58,11 @@
     <div class="title-layer" v-if="screen === 'debug'">
       <text class="pause-title debug-title">调试模式</text>
       <text class="tip">你已进入调试模式 · 设置仅在本次运行生效</text>
-      <div class="debug-row">
+      <div class="debug-row debug-wrap">
         <text class="debug-label">关卡</text>
         <div
           class="debug-chip"
-          v-for="lv in [1, 2, 3, 4, 5, 6, 7, 8]"
+          v-for="lv in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]"
           :key="lv"
           :class="{ 'debug-chip-on': debugLevel === lv }"
           @touchstart="pickDebugLevel(lv)"
@@ -336,7 +337,14 @@ export default {
       this.debugLevel = lv
     },
     debugLevelName(lv) {
-      return lv <= 4 ? '1-' + lv : '2-' + (lv - 4)
+      if (lv <= 4) return '1-' + lv
+      if (lv <= 8) return '2-' + (lv - 4)
+      if (lv <= 12) return '3-' + (lv - 8)
+      if (lv <= 16) return '4-' + (lv - 12)
+      if (lv <= 20) return '5-' + (lv - 16)
+      if (lv <= 24) return '6-' + (lv - 20)
+      if (lv <= 28) return '7-' + (lv - 24)
+      return '8-' + (lv - 28)
     },
     toggleDebugStar() {
       if (this.screen !== 'debug') return
@@ -636,11 +644,16 @@ export default {
 }
 
 .debug-row {
-  width: 700px;
+  width: 860px;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
   margin-bottom: 6px;
+}
+
+.debug-wrap {
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .debug-label {
@@ -652,9 +665,9 @@ export default {
 }
 
 .debug-chip {
-  width: 76px;
-  height: 34px;
-  margin-right: 10px;
+  width: 68px;
+  height: 32px;
+  margin-right: 8px;
   background-color: rgba(30, 40, 80, 0.72);
   border-width: 2px;
   border-color: #555f7a;

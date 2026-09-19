@@ -398,8 +398,10 @@ Game.prototype.loadLevel = function (levelIdx) {
   this.enemies = []
   this.coinItems = []
   this.particles = []
+  this.lavaList = []
   this.flagX = 0
   this.castleX = 0
+  this.lavaFireT = 0
 
   for (var i = 0; i < segs.length; i++) {
     var s = segs[i]
@@ -413,7 +415,6 @@ Game.prototype.loadLevel = function (levelIdx) {
       var ly = (WORLD_GROUND_Y + 1 - lh) * TILE
       this.tiles.push({ type: 'lava', x: s.x * TILE, y: ly, w: s.w * TILE, h: lh * TILE })
       /* 记录岩浆位置用于喷火球 */
-      if (!this.lavaList) this.lavaList = []
       this.lavaList.push({ x: s.x * TILE + s.w * TILE / 2, y: ly, w: s.w * TILE })
     } else if (s.t === 'b') {
       this.tiles.push({ type: 'brick', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
@@ -471,6 +472,55 @@ Game.prototype.loadLevel = function (levelIdx) {
         x: s.x * TILE, y: (s.y || 6) * TILE, w: TILE, h: TILE,
         vx: -ENEMY_SPD, alive: true, squashed: false, squashT: 0, walk: 0,
         kind: 'paratroopa_g', baseY: (s.y || 6) * TILE, flyT: Math.random() * 6,
+      })
+    } else if (s.t === 'prg') {
+      /* 红飞龟 (直线跳跃) */
+      this.enemies.push({
+        x: s.x * TILE, y: (s.y || 5) * TILE, w: TILE, h: TILE,
+        vx: -ENEMY_SPD * 1.2, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'paratroopa_r', baseY: (s.y || 5) * TILE, flyT: Math.random() * 6,
+      })
+    } else if (s.t === 'bz') {
+      /* 硬壳虫 (黑甲虫, 怕踩不怕火) */
+      this.enemies.push({
+        x: s.x * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE,
+        vx: -ENEMY_SPD, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'buzzy',
+      })
+    } else if (s.t === 'bl') {
+      /* 墨鱼 (Z字追踪) */
+      this.enemies.push({
+        x: s.x * TILE, y: (s.y || 5) * TILE, w: TILE, h: TILE,
+        vx: 0, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'blooper', t: 0,
+      })
+    } else if (s.t === 'ch') {
+      /* 跳跳鱼 (从下方跳出) */
+      this.enemies.push({
+        x: s.x * TILE, y: (WORLD_GROUND_Y + 1) * TILE, w: TILE, h: TILE,
+        vx: (s.vx || 1.5), alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'cheep', vy: -10, jumpV: 10, t: Math.random() * 1000, wait: 0,
+      })
+    } else if (s.t === 'hb') {
+      /* 锤子龟 (跳跃+扔锤子) */
+      this.enemies.push({
+        x: s.x * TILE, y: (s.y || 7) * TILE, w: TILE, h: TILE,
+        vx: -ENEMY_SPD * 0.6, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'hammer', t: Math.random() * 1000, jumpT: 0, throwT: 0,
+      })
+    } else if (s.t === 'lk') {
+      /* 云龟 (飘在云上扔刺龟蛋) */
+      this.enemies.push({
+        x: s.x * TILE, y: (s.y || 4) * TILE, w: TILE, h: TILE,
+        vx: 0, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'lakitu', t: 0, throwT: 0,
+      })
+    } else if (s.t === 'fb') {
+      /* 火焰棒 (旋转火球串) */
+      this.enemies.push({
+        x: s.x * TILE, y: (s.y || 8) * TILE, w: TILE, h: TILE,
+        vx: 0, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'firebar', angle: 0, len: s.len || 3, speed: s.speed || 0.04,
       })
     } else if (s.t === 'sp') {
       /* 刺龟 (不能踩) */
@@ -851,7 +901,8 @@ Game.prototype.updateEnemies = function (dt) {
       var isAir = (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r' ||
                    e.kind === 'bulletbill' || e.kind === 'podoboo' ||
                    e.kind === 'piranha' ||
-                   e.y < (WORLD_GROUND_Y - 1.5) * TILE) /* 刷在砖块上的也算 */
+                   e.kind === 'lakitu' || e.kind === 'blooper' ||
+                   (e.y < (WORLD_GROUND_Y - 1.5) * TILE && e.kind !== 'hammer' && e.kind !== 'buzzy'))
       var margin = isAir ? 20 : 100
       if (e.x > p.x - margin && e.x < p.x + VIEW_W + margin) {
         e.activated = true
@@ -879,10 +930,10 @@ Game.prototype.updateEnemies = function (dt) {
         if (e.y > e.baseY) { e.y = e.baseY; e.vy = -e.jumpV; e.t = 0; e.wait = 1500 + Math.random() * 1000 }
       }
     } else if (e.kind === 'piranha') {
-      /* 食人花: 从管道顶部向上弹出再收回 */
+      /* 食人花: 从管道顶部向上弹出再收回, 收回后间隔3s再弹 */
       e.t = (e.t || 0) + dt
       if (e.baseY == null) e.baseY = e.y
-      var cycle = e.t % 3000
+      var cycle = e.t % 6000
       var popDist = e.h /* 完全弹出时底部正好在管道顶 */
       if (cycle < 800) {
         /* 向上弹出 */
@@ -891,10 +942,13 @@ Game.prototype.updateEnemies = function (dt) {
       } else if (cycle < 2200) {
         /* 停在上面 */
         e.y = e.baseY - popDist
-      } else {
+      } else if (cycle < 3000) {
         /* 缩回管道 */
         var p2 = (cycle - 2200) / 800
         e.y = e.baseY - popDist + p2 * popDist
+      } else {
+        /* 缩回后等待3秒 */
+        e.y = e.baseY
       }
     } else if (e.kind === 'lavaFireball') {
       /* 岩浆火球: 直线飞行, 有轻微重力 */
@@ -914,6 +968,87 @@ Game.prototype.updateEnemies = function (dt) {
       var aheadX2 = e.vx > 0 ? e.x + e.w + 2 : e.x - 2
       var floor2 = this.collideTiles(aheadX2, e.y + e.h + 2, 4, 6)
       if (!floor2 && e.vy === 0) { e.x -= e.vx * (dt / 16.667); e.vx = -e.vx }
+    } else if (e.kind === 'blooper') {
+      /* 墨鱼: Z字追踪玩家 */
+      e.t = (e.t || 0) + dt
+      var dx = this.player.x - e.x
+      var dy = this.player.y - e.y
+      var dist = Math.sqrt(dx * dx + dy * dy) || 1
+      var sp = 0.9
+      e.x += (dx / dist) * sp * (dt / 16.667)
+      e.y += (dy / dist) * sp * Math.sin(e.t / 150) * 1.8 * (dt / 16.667)
+      /* 出屏后从另一侧回来 */
+      if (e.y > WORLD_GROUND_Y * TILE || e.y < -TILE * 2) e.y = Math.max(TILE, Math.min(WORLD_GROUND_Y * TILE - TILE, e.y))
+    } else if (e.kind === 'cheep') {
+      /* 跳跳鱼: 反复从地面跳起 */
+      if (e.wait > 0) {
+        e.wait -= dt
+        keep.push(e)
+        continue
+      }
+      e.vy = Math.min(e.vy + GRAVITY * 0.5 * (dt / 16.667), 6)
+      e.y += e.vy * (dt / 16.667)
+      e.x += e.vx * (dt / 16.667)
+      /* 落回地面下方后等一会再跳 */
+      if (e.y >= (WORLD_GROUND_Y + 1) * TILE) {
+        e.y = (WORLD_GROUND_Y + 1) * TILE
+        e.vy = -10
+        e.wait = 1500 + Math.random() * 2000
+      }
+    } else if (e.kind === 'hammer') {
+      /* 锤子龟: 跳跃+扔锤子 */
+      if (e.isProjectile) {
+        /* 锤子飞行物 */
+        e.vy = Math.min(e.vy + GRAVITY * (dt / 16.667), 8)
+        e.x += e.vx * (dt / 16.667)
+        e.y += e.vy * (dt / 16.667)
+        e.life--
+        if (e.life <= 0) e.alive = false
+        keep.push(e)
+        continue
+      }
+      e.t = (e.t || 0) + dt
+      if (!e.vy) e.vy = 0
+      e.vy = Math.min(e.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+      e.x += e.vx * (dt / 16.667)
+      e.y += e.vy * (dt / 16.667)
+      var hbLand = this.collideTiles(e.x, e.y + e.h, e.w, 4)
+      if (hbLand && e.vy > 0) { e.y = hbLand.y - e.h; e.vy = 0 }
+      /* 撞墙掉头 */
+      var hbWall = this.collideTiles(e.vx > 0 ? e.x + e.w + 2 : e.x - 2, e.y + 4, 2, e.h - 8)
+      if (hbWall) e.vx = -e.vx
+      /* 每隔1.5秒跳一下 */
+      if (e.vy === 0 && e.t > 1500) { e.vy = -6; e.t = 0 }
+      /* 每隔2秒扔锤子 */
+      e.throwT = (e.throwT || 0) + dt
+      if (e.throwT > 2000 && e.x > this.player.x - 200 && e.x < this.player.x + 400) {
+        e.throwT = 0
+        var dir = this.player.x > e.x ? 1 : -1
+        this.enemies.push({
+          x: e.x + e.w / 2, y: e.y, w: TILE * 0.6, h: TILE * 0.6,
+          vx: dir * 3, vy: -5, alive: true, squashed: false, squashT: 0, walk: 0,
+          kind: 'hammer', isProjectile: true, t: 0, life: 120,
+        })
+      }
+    } else if (e.kind === 'lakitu') {
+      /* 云龟: 跟随玩家, 扔刺龟蛋 */
+      var targetX = this.player.x - TILE
+      e.x += (targetX - e.x) * 0.03
+      e.y = (this.player.y - 4 * TILE) + Math.sin(e.t / 500) * TILE
+      e.t = (e.t || 0) + dt
+      e.throwT = (e.throwT || 0) + dt
+      if (e.throwT > 2500 && e.alive) {
+        e.throwT = 0
+        /* 在玩家正上方扔蛋 */
+        this.enemies.push({
+          x: this.player.x, y: e.y + TILE, w: TILE, h: TILE,
+          vx: 0.3, vy: 1, alive: true, squashed: false, squashT: 0, walk: 0,
+          kind: 'spiny', fromLakitu: true,
+        })
+      }
+    } else if (e.kind === 'firebar') {
+      /* 火焰棒: 旋转 */
+      e.angle += e.speed * (dt / 16.667)
     } else {
       /* 默认: 地面行走 (goomba/koopa/buzzy) */
       e.x += e.vx * (dt / 16.667)
@@ -957,15 +1092,17 @@ Game.prototype.updateEnemies = function (dt) {
         e.squashed = true
         e.squashT = 0.5
         this.score += 200
-      } else if (e.kind === 'spiny' || e.kind === 'piranha' || e.kind === 'podoboo' || e.kind === 'lavaFireball') {
+      } else if (e.kind === 'spiny' || e.kind === 'piranha' || e.kind === 'podoboo' || e.kind === 'lavaFireball' || e.kind === 'blooper' || e.kind === 'cheep' || e.kind === 'firebar' || (e.kind === 'hammer' && e.isProjectile)) {
         /* 不能踩的敌人 */
         if (this.invuln <= 0) this.hurtPlayer()
       } else if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
         /* 飞龟: 踩一下变普通龟 */
-        if (p.vy > 0) {
+        var stompingPT = p.vy > 0 || (this.playerBottomPrev <= e.y)
+        if (stompingPT) {
           e.kind = 'koopa'
           e.baseY = e.baseY || e.y
           e.vx = e.vx || -ENEMY_SPD
+          e.x = p.x + (p.w - e.w) / 2
           p.vy = STOMP_V
           p.onGround = false
           this.score += 200
@@ -974,11 +1111,13 @@ Game.prototype.updateEnemies = function (dt) {
           keep.push(e)
           continue
         }
-      } else if (p.vy > 0) {
-        /* 下落踩怪 */
+      } else if (p.vy > 0 || this.playerBottomPrev <= e.y) {
+        /* 下落踩怪 (即使本帧同时落地把vy清零也能踩) */
         e.alive = false
         e.squashed = true
         e.squashT = 0.5
+        e.x = p.x + (p.w - e.w) / 2
+        e.y = (WORLD_GROUND_Y - 1) * TILE
         p.vy = STOMP_V
         p.onGround = false
         this.score += 100
@@ -1470,11 +1609,81 @@ Game.prototype.render = function () {
     } else if (e.kind === 'piranha') {
       /* 食人花单独在管道后面渲染 */
       continue
+    } else if (e.kind === 'buzzy') {
+      /* 硬壳虫: 黑色圆壳 */
+      ctx.fillStyle = '#333'
+      ctx.fillRect(e.x - cam + 2, e.y + 4, e.w - 4, e.h - 6)
+      ctx.fillStyle = '#666'
+      ctx.fillRect(e.x - cam + 6, e.y + 8, e.w - 12, e.h - 14)
+      continue
+    } else if (e.kind === 'blooper') {
+      /* 墨鱼: 白色鱿鱼 */
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(e.x - cam + 4, e.y + 2, e.w - 8, e.h - 8)
+      ctx.fillStyle = '#000'
+      ctx.fillRect(e.x - cam + 8, e.y + 6, 3, 3)
+      ctx.fillRect(e.x - cam + 14, e.y + 6, 3, 3)
+      /* 触手 */
+      ctx.fillRect(e.x - cam + 6, e.y + e.h - 6, 3, 4)
+      ctx.fillRect(e.x - cam + 11, e.y + e.h - 6, 3, 4)
+      ctx.fillRect(e.x - cam + 16, e.y + e.h - 6, 3, 4)
+      continue
+    } else if (e.kind === 'cheep') {
+      /* 跳跳鱼: 红色鱼 */
+      ctx.fillStyle = '#e00'
+      ctx.fillRect(e.x - cam + 2, e.y + 6, e.w - 4, e.h - 12)
+      ctx.fillStyle = '#a00'
+      ctx.fillRect(e.x - cam + 4, e.y + 8, e.w - 8, e.h - 16)
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(e.x - cam + 16, e.y + 8, 3, 3)
+      continue
+    } else if (e.kind === 'hammer') {
+      /* 锤子龟: 绿龟身体+头盔+锤子 */
+      ctx.fillStyle = '#33aa33'
+      ctx.fillRect(e.x - cam + 2, e.y + 6, e.w - 4, e.h - 8)
+      ctx.fillStyle = '#ccaa22'
+      ctx.fillRect(e.x - cam + 4, e.y + 10, e.w - 8, e.h - 14)
+      /* 头盔 */
+      ctx.fillStyle = '#333'
+      ctx.fillRect(e.x - cam + 1, e.y, e.w - 2, 7)
+      /* 锤子 */
+      ctx.fillStyle = '#aa8844'
+      ctx.fillRect(e.x - cam - 2, e.y + 8, 6, 4)
+      ctx.fillRect(e.x - cam + e.w - 4, e.y + 8, 6, 4)
+      continue
+    } else if (e.kind === 'lakitu') {
+      /* 云龟: 白云+龟 */
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(e.x - cam - 2, e.y + e.h - 4, e.w + 4, 6)
+      ctx.fillRect(e.x - cam + 2, e.y + e.h - 8, e.w - 4, 6)
+      ctx.fillStyle = '#33aa33'
+      ctx.fillRect(e.x - cam + 4, e.y + 2, e.w - 8, e.h - 6)
+      ctx.fillStyle = '#ccaa22'
+      ctx.fillRect(e.x - cam + 6, e.y + 6, e.w - 12, e.h - 12)
+      /* 眼镜 */
+      ctx.fillStyle = '#000'
+      ctx.fillRect(e.x - cam + 8, e.y + 5, 2, 2)
+      ctx.fillRect(e.x - cam + 14, e.y + 5, 2, 2)
+      continue
+    } else if (e.kind === 'firebar') {
+      /* 火焰棒: 旋转火球串 */
+      var cx = e.x - cam + e.w / 2
+      var cy = e.y + e.h / 2
+      for (var fi = 0; fi < e.len; fi++) {
+        var fa = e.angle + fi * 0.5
+        var fx = cx + Math.cos(fa) * (fi + 1) * TILE * 0.5
+        var fy = cy + Math.sin(fa) * (fi + 1) * TILE * 0.5
+        ctx.fillStyle = '#ff3300'
+        ctx.fillRect(fx - 5, fy - 5, 10, 10)
+        ctx.fillStyle = '#ffcc00'
+        ctx.fillRect(fx - 3, fy - 3, 6, 6)
+      }
+      continue
     } else {
       spr = Math.floor(e.walk) % 2 === 0 ? GOOMBA : GOOMBA_WALK
     }
-    /* 红龟: 红色壳 (画个红框) */
-    if (e.kind === 'redkoopa') {
+    /* 红龟/红飞龟: 红色壳 */
+    if (e.kind === 'redkoopa' || e.kind === 'paratroopa_r') {
       ctx.fillStyle = '#c00'
       ctx.fillRect(e.x - cam + 2, e.y + 2, e.w - 4, e.h - 4)
     }
