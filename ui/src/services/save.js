@@ -1,53 +1,11 @@
 /*
- * 游戏存档 (3 个存档位)。
- * 固件不提供 storage JS 模块, 用 panet.writeFile/readFile 持久化到
- * 系统用户数据目录 /userdisk/database/super_mario_save.json。
- * /userdisk/database 为设备自带持久目录 (系统级, 退出/重启/恢复出厂外的
- * 场景均保留), 目录天然存在, 无需 mkdirs; 保留 ensureDir 仅为兜底。
- *
- * 存储结构:
- *   {
- *     version: 1,
- *     slots: [ {score, coins, lives, level, time, power, saveAt}, ... ]  // 3 槽
- *   }
- * 每槽保存: 分数 / 金币 / 生命 / 关卡 / 时间 / 强化状态, 出生点固定为当前关卡起点。
- *
- * 所有读写均走 Promise (panet 原生 API 为 Promise), 页面用 then 消费。
+ * 游戏存档 (临时关闭持久化, 只用内存)。
+ * 等找到正确的 falcon 存储 API 再恢复。
  */
-
-import { Panet } from 'panet'
 
 var SAVE_VERSION = 1
 var SLOT_COUNT = 3
-var SAVE_DIR = '/userdisk/database'
-var SAVE_NAME = 'super_mario_save.json'
-
-var _panet = null
-var _path = null
 var _memory = null
-var _fileOk = true // 目录/文件是否可写
-
-function client() {
-  if (!_panet) _panet = typeof Panet === 'function' ? new Panet() : Panet
-  return _panet
-}
-
-function savePath() {
-  if (_path !== null) return _path
-  /* 统一路径: 真机为 /userdisk/super-mario/, web 预览由 mock-panet 以
-     localStorage 承载同一路径, 无需区分环境 */
-  _path = SAVE_DIR + '/' + SAVE_NAME
-  return _path
-}
-
-/* 确保 userdisk 项目目录存在 (真机 panet.mkdirs; 预览 mock resolve) */
-function ensureDir() {
-  return client()
-    .mkdirs(SAVE_DIR)
-    .catch(function () {
-      /* 建目录失败不致命, 交给 writeFile 自身报错 */
-    })
-}
 
 function emptySlot() {
   return { score: 0, coins: 0, lives: 3, level: 1, time: 300, power: 'small', saveAt: 0 }
@@ -73,48 +31,11 @@ function normalize(d) {
 }
 
 function read() {
-  return _memory
-    ? Promise.resolve(_memory)
-    : client()
-        .readFile(savePath())
-        .then(function (raw) {
-          var d = null
-          try {
-            if (raw) d = JSON.parse(raw)
-          } catch (e) {
-            d = null
-          }
-          _memory = normalize(d)
-          return _memory
-        })
-        .catch(function () {
-          /* 文件不存在/读取失败: 按无存档处理, 不代表不可写 */
-          _memory = normalize(null)
-          return _memory
-        })
+  if (!_memory) _memory = normalize(null)
+  return Promise.resolve(_memory)
 }
 
-function write() {
-  var path = savePath()
-  if (!path) {
-    _fileOk = false
-    return Promise.resolve(false)
-  }
-  return ensureDir()
-    .then(function () {
-      return client().writeFile(path, JSON.stringify(_memory))
-    })
-    .then(function () {
-      _fileOk = true
-      return true
-    })
-    .catch(function () {
-      _fileOk = false
-      return false
-    })
-}
-
-/* 读取全部存档槽 (用于标题画面展示) */
+/* 读取全部存档槽 */
 export function loadSlots() {
   return read().then(function (db) {
     var out = []
@@ -135,7 +56,7 @@ export function loadSlots() {
   })
 }
 
-/* 读取单个槽 (有档则作为初始进度) */
+/* 读取单个槽 */
 export function loadSlot(idx) {
   return read().then(function (db) {
     var s = db.slots[idx] || emptySlot()
@@ -152,7 +73,7 @@ export function loadSlot(idx) {
   })
 }
 
-/* 写入单个槽 (新建/覆盖) */
+/* 写入单个槽 (只存内存, 不持久化) */
 export function saveSlot(idx, state) {
   return read().then(function (db) {
     db.slots[idx] = {
@@ -165,7 +86,7 @@ export function saveSlot(idx, state) {
       saveAt: Date.now(),
     }
     _memory = db
-    return write()
+    return true
   })
 }
 
@@ -174,11 +95,11 @@ export function clearSlot(idx) {
   return read().then(function (db) {
     db.slots[idx] = emptySlot()
     _memory = db
-    return write()
+    return true
   })
 }
 
-/* $dataDir 是否可用 (不可用时存档只在内存, 重启即失) */
+/* 存储是否可用 (现在只在内存, 重启即失) */
 export function persistAvailable() {
-  return _fileOk && savePath() !== ''
+  return false
 }
