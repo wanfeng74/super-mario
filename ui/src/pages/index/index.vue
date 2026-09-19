@@ -44,7 +44,7 @@
         <text class="about-line">　　　墨鱼/跳跳鱼/锤子龟/云龟/硬壳虫</text>
         <text class="about-line">陷阱：食人花/帕拉火球/火焰棒/岩浆</text>
         <text class="about-line">强化道具：蘑菇（变大）/ 火焰花 / 无敌星 / 1UP</text>
-        <text class="about-line">存档位 3 个 · 自动保存至 /userdisk/database</text>
+        <text class="about-line">存档位 3 个 · 切后台/退出自动保存（jsapi.storage）</text>
         <div class="debug-btn" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
           <text class="debug-btn-text">调试模式</text>
         </div>
@@ -144,11 +144,13 @@ export default {
       this.initGame()
     },
     onHide() {
-      // 切后台: 停止游戏循环 (时间冻结, 相当于自动暂停)
+      // 切后台: 停止游戏循环 (时间冻结, 相当于自动暂停) + 自动保存
       this.stopLoop()
+      this.autoSave()
     },
     onUnload() {
       this.stopLoop()
+      this.autoSave()
       if (this._keyDown) {
         try {
           if (typeof window !== 'undefined' && window.removeEventListener) {
@@ -300,6 +302,14 @@ export default {
           self.saveMsg = ''
         }, 1500)
       })
+    },
+    /* 切后台/退出时自动保存 (同 hill-climb 机制: onHide/onUnload 触发) */
+    autoSave() {
+      if (this.curSlot < 0 || !this._game) return
+      if (this.screen !== 'game' && this.screen !== 'paused') return
+      var st = this._game.getState()
+      if (!st) return
+      saveSlot(this.curSlot, st)
     },
     doDelete() {
       this._blockPickUntil = Date.now() + 400

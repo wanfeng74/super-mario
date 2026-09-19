@@ -1,10 +1,15 @@
 /*
- * 游戏存档 (临时关闭持久化, 只用内存)。
- * 等找到正确的 falcon 存储 API 再恢复。
+ * 游戏存档 (falcon jsapi.storage 持久化)。
+ * 机制参考 youdao-hill-climb:
+ *  - 存储 API: jsapi.storage.getStorage / setStorage (真机)
+ *  - key 带格式版本号 (mario_save_v1), 数据结构变更时升级后缀兼容旧档
+ *  - 浏览器预览回退 localStorage, 再无则内存兜底
+ * 保留 3 个存档位, 单 key 存全部槽位。
  */
 
 var SAVE_VERSION = 1
 var SLOT_COUNT = 3
+var STORAGE_KEY = 'mario_save_v' + SAVE_VERSION
 var _memory = null
 
 function emptySlot() {
@@ -30,9 +35,69 @@ function normalize(d) {
   return { version: SAVE_VERSION, slots: slots }
 }
 
+/* ---- 存储后端探测: jsapi.storage > localStorage > null ---- */
+function jsapiObject() {
+  try {
+    if (typeof jsapi !== 'undefined' && jsapi) return jsapi
+  } catch (e) {}
+  try {
+    if (typeof window !== 'undefined' && window.jsapi) return window.jsapi
+  } catch (e) {}
+  return null
+}
+
+function storageBackend() {
+  var j = jsapiObject()
+  if (j && j.storage && typeof j.storage.setStorage === 'function') return 'jsapi'
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) return 'local'
+  } catch (e) {}
+  return null
+}
+
+function rawGet(key) {
+  var b = storageBackend()
+  if (b === 'jsapi') return jsapiObject().storage.getStorage(key)
+  if (b === 'local') return window.localStorage.getItem(key)
+  return null
+}
+
+function rawSet(key, value) {
+  var b = storageBackend()
+  if (b === 'jsapi') return jsapiObject().storage.setStorage(key, value)
+  if (b === 'local') {
+    window.localStorage.setItem(key, String(value))
+    return true
+  }
+  return false
+}
+
 function read() {
-  if (!_memory) _memory = normalize(null)
+  if (_memory) return Promise.resolve(_memory)
+  var d = null
+  try {
+    var raw = rawGet(STORAGE_KEY)
+    if (typeof raw === 'string' && raw) {
+      try {
+        d = JSON.parse(raw)
+      } catch (e) {
+        d = null
+      }
+    }
+  } catch (e) {
+    d = null
+  }
+  _memory = normalize(d)
   return Promise.resolve(_memory)
+}
+
+function persist(db) {
+  _memory = db
+  try {
+    return rawSet(STORAGE_KEY, JSON.stringify(db))
+  } catch (e) {
+    return false
+  }
 }
 
 /* 读取全部存档槽 */
@@ -73,7 +138,7 @@ export function loadSlot(idx) {
   })
 }
 
-/* 写入单个槽 (只存内存, 不持久化) */
+/* 写入单个槽并持久化 */
 export function saveSlot(idx, state) {
   return read().then(function (db) {
     db.slots[idx] = {
@@ -85,21 +150,19 @@ export function saveSlot(idx, state) {
       power: state.power === 'super' || state.power === 'fire' ? state.power : 'small',
       saveAt: Date.now(),
     }
-    _memory = db
-    return true
+    return persist(db)
   })
 }
 
-/* 删除单个槽 */
+/* 删除单个槽并持久化 */
 export function clearSlot(idx) {
   return read().then(function (db) {
     db.slots[idx] = emptySlot()
-    _memory = db
-    return true
+    return persist(db)
   })
 }
 
-/* 存储是否可用 (现在只在内存, 重启即失) */
+/* 存储是否可用 */
 export function persistAvailable() {
-  return false
+  return storageBackend() !== null
 }
