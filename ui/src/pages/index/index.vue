@@ -35,22 +35,20 @@
 
     <!-- ===== 关于页 ===== -->
     <div class="title-layer" v-if="screen === 'about'">
-      <text class="pause-title">关于</text>
       <div class="about-box">
-        <text class="about-version-text">超级马里奥 · 蘑菇王国冒险 v{{ version }}</text>
-        <text class="about-line">纯触摸操作 · 不依赖鼠标 · 960×266 横屏适配</text>
-        <text class="about-line">8 大世界 × 4 关 = 32 关完整通关</text>
-        <text class="about-line">敌人：栗子仔/绿龟/红龟/飞龟/刺龟/子弹比尔</text>
-        <text class="about-line">　　　墨鱼/跳跳鱼/锤子龟/云龟/硬壳虫</text>
-        <text class="about-line">陷阱：食人花/帕拉火球/火焰棒/岩浆</text>
-        <text class="about-line">强化道具：蘑菇（变大）/ 火焰花 / 无敌星 / 1UP</text>
-        <text class="about-line">存档位 3 个 · 切后台/退出自动保存（jsapi.storage）</text>
-        <div class="debug-btn" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
-          <text class="debug-btn-text">调试模式</text>
+        <text class="about-version-text">超级马里奥 · 蘑菇王国冒险</text>
+        <text class="about-version-tag">v{{ version }} · 有道词典笔 falcon 平台</text>
+        <text class="about-line">8 大世界 × 4 关 = 32 关完整通关 · 纯触摸操作 · 3 存档位自动保存</text>
+        <text class="about-line">敌人：栗子仔/绿龟/红龟/飞龟/刺龟/子弹比尔/墨鱼/跳跳鱼/锤子龟/云龟/硬壳虫</text>
+        <text class="about-line">陷阱：食人花/帕拉火球/火焰棒/岩浆 · 道具：蘑菇/火焰花/无敌星/1UP</text>
+        <div class="about-actions">
+          <div class="about-btn about-btn-debug" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
+            <text class="about-btn-text">调试模式</text>
+          </div>
+          <div class="about-btn" @touchstart="backFromAbout">
+            <text class="about-btn-text">返回</text>
+          </div>
         </div>
-      </div>
-      <div class="slot" @touchstart="backFromAbout">
-        <text class="slot-title">返回</text>
       </div>
     </div>
 
@@ -583,17 +581,17 @@ export default {
 }
 
 .about-box {
-  width: 700px;
-  margin-bottom: 8px;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 14px;
-  padding-right: 14px;
+  width: 840px;
+  margin-bottom: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 16px;
+  padding-right: 16px;
   background-color: rgba(20, 20, 30, 0.72);
   border-width: 2px;
   border-color: #3169c7;
   border-style: solid;
-  border-radius: 8px;
+  border-radius: 10px;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
@@ -605,47 +603,51 @@ export default {
   line-height: 19px;
 }
 
-.about-version {
-  width: 100%;
-  height: 52px;
-  margin-bottom: 6px;
-  background-color: rgba(70, 90, 160, 0.85);
-  border-width: 2px;
-  border-color: #ffd75e;
-  border-style: solid;
-  border-radius: 8px;
-  align-items: center;
-  justify-content: center;
-}
-
 .about-version-text {
+  width: 100%;
   color: #ffd75e;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
+  text-align: center;
 }
 
-.about-version-count {
+.about-version-tag {
+  width: 100%;
   color: #7ee787;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: bold;
   margin-top: 2px;
+  margin-bottom: 4px;
+  text-align: center;
 }
 
-.debug-btn {
-  width: 260px;
-  height: 44px;
-  border-radius: 8px;
-  border-width: 2px;
-  border-color: #ffd75e;
-  background-color: #3a2f14;
+.about-actions {
+  width: 100%;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   margin-top: 10px;
 }
 
-.debug-btn-text {
+.about-btn {
+  width: 200px;
+  height: 40px;
+  border-radius: 8px;
+  border-width: 2px;
+  border-color: #ffd75e;
+  background-color: rgba(58, 47, 20, 0.9);
+  align-items: center;
+  justify-content: center;
+}
+
+.about-btn-debug {
+  margin-right: 20px;
+  background-color: #3a2f14;
+}
+
+.about-btn-text {
   color: #ffd75e;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
 }
 
