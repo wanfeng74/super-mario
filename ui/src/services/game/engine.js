@@ -168,22 +168,535 @@ var ITEM_STAR = [
   '............',
 ]
 
-/* 库巴 (BOSS) 12x12 => 24x24 */
-var KOOPA = [
-  '..GGGGGGGG..',
-  '.GGGGGGGGGG.',
-  '.GGGGGGGGGG.',
-  '.GGRRGGGGRG.',
-  '.GGRRGGGGRG.',
-  '.GGGGGGGGGG.',
-  '.GGGGGGGGGG.',
-  '..GGGGGGGG..',
-  '.DD.DDDD.DD.',
-  '.DD.DDDD.DD.',
-  '..DD....DD..',
-  '..DD....DD..',
+/* ===== 原版 NES 敌人贴图 (Super Mario Wiki sprite 精确像素) ===== */
+/* v3: 16列系已烘焙1.5倍整数网格(scale=1整数渲染, 消除条纹), 库巴32列保留@3整数 */
+var ENEMY_PALETTE = {
+  'n': '#994e00',
+  'p': '#000000',
+  'q': '#ffccc5',
+  'r': '#ffffff',
+  's': '#ea9e22',
+  't': '#0d9300',
+  'u': '#b53120',
+  'v': '#007c8d',
+  'w': '#aeeae9',
+  'x': '#007b8c',
+  'y': '#103239',
+  'z': '#565656',
+  'A': '#a6a6a6',
+};
+Object.assign(SPRITE_MAP, ENEMY_PALETTE)
+/* 原版贴图缩放: 16列系已烘焙1.5倍整数网格 => scale=1 整数渲染(无条纹); 库巴32列@3 => 96px */
+var ENEMY_SPR_SCALE = {
+  koopa: 1, redkoopa: 1, paratroopa_g: 1, paratroopa_r: 1,
+  spiny: 1, bulletbill: 1, podoboo: 1, buzzy: 1,
+  blooper: 1, cheep: 1, hammer: 1, lakitu: 1, goomba: 1,
+}
+var SPR_GOOMBA = [
+  '.........nnnnnn.........',
+  '.........nnnnnn.........',
+  '........nnnnnnnnn.......',
+  '......nnnnnnnnnnnn......',
+  '......nnnnnnnnnnnn......',
+  '.....nnnnnnnnnnnnnnn....',
+  '...nnpppnnnnnnnnnpppn...',
+  '...nnpppnnnnnnnnnpppn...',
+  '..nnnnqqpnnnnnnppqnnnnn.',
+  '..nnnnqqpppppppppqnnnnn.',
+  '..nnnnqqpppppppppqnnnnn.',
+  'nnnnnnqqpqqnnnqppqnnnnnn',
+  'nnnnnnqqqqqnnnqqqqnnnnnn',
+  'nnnnnnqqqqqnnnqqqqnnnnnn',
+  'nnnnnnnnnnnnnnnnnnnnnnnn',
+  '..nnnnnnqqqqqqqqqnnnnnn.',
+  '..nnnnnnqqqqqqqqqnnnnnn.',
+  '......qqqqqqqqqqqq......',
+  '...pppqqqqqqqqqqqq......',
+  '...pppqqqqqqqqqqqq......',
+  '..pppppppqqqqqqqqppp....',
+  '..pppppppppqqqqppppp....',
+  '..pppppppppqqqqppppp....',
+  '...pppppppp...pppp......',
+]
+var SPR_GOOMBA_WALK = [
+  '.........nnnnnn.........',
+  '.........nnnnnn.........',
+  '........nnnnnnnnn.......',
+  '......nnnnnnnnnnnn......',
+  '......nnnnnnnnnnnn......',
+  '.....nnnnnnnnnnnnnnn....',
+  '...nnpppnnnnnnnnnpppn...',
+  '...nnpppnnnnnnnnnpppn...',
+  '..nnnnqqpnnnnnnppqnnnnn.',
+  '..nnnnqqpppppppppqnnnnn.',
+  '..nnnnqqpppppppppqnnnnn.',
+  'nnnnnnqqpqqnnnqppqnnnnnn',
+  'nnnnnnqqqqqnnnqqqqnnnnnn',
+  'nnnnnnqqqqqnnnqqqqnnnnnn',
+  'nnnnnnnnnnnnnnnnnnnnnnnn',
+  '..nnnnnnqqqqqqqqqnnnnnn.',
+  '..nnnnnnqqqqqqqqqnnnnnn.',
+  '......qqqqqqqqqqqq......',
+  '......qqqqqqqqqqqqppp...',
+  '......qqqqqqqqqqqqppp...',
+  '.....pppqqqqqqqpppppppp.',
+  '.....ppppqqqqqppppppppp.',
+  '.....ppppqqqqqppppppppp.',
+  '......ppppp...ppppppp...',
+]
+var SPR_KOOPA_G = [
+  '.....r..................',
+  '.....r..................',
+  '...rrrrr................',
+  '...rrrrrs...............',
+  '...rrrrrs...............',
+  '..sttrrrsss.............',
+  '..sttrrrsss.............',
+  '..sttrrrsss.............',
+  '..sttrrrsss.............',
+  '..srrrrrsss.............',
+  '..srrrrrsss.............',
+  'sssssrsssss.............',
+  'sstssssssss.............',
+  'sstssssssss.............',
+  'sssssssss...tttttttt....',
+  'sssss.sss..tssttttsst...',
+  'sssss.sss..tssttttsst...',
+  'sss...sss..tttsttsttttt.',
+  'sss..sssrttttttsstrrrtt.',
+  'sss..sssrttttttsstrrrtt.',
+  '..s..sssrtttttsttsttrtt.',
+  '.....sssrsstssttttsstss.',
+  '.....sssrsstssttttsstss.',
+  '...sssrrrttsttttttttstt.',
+  '.....srrtsstssttttsstss.',
+  '.....srrtsstssttttsstss.',
+  '.....srrstttttsttsttttt.',
+  '......rrtttttttsstttttt.',
+  '......rrtttttttsstttttt.',
+  '......rrrtttttsttsttrrrr',
+  '.....sssrrrrsstttrrrr...',
+  '.....sssrrrrsstttrrrr...',
+  '...ssssssssrrrrrrrsssss.',
+  '..sssssss.........ssssss',
+]
+var SPR_KOOPA_R = [
+  '.....r..................',
+  '.....r..................',
+  '...rrrrr................',
+  '...rrrrrs...............',
+  '...rrrrrs...............',
+  '..suurrrsss.............',
+  '..suurrrsss.............',
+  '..suurrrsss.............',
+  '..suurrrsss.............',
+  '..srrrrrsss.............',
+  '..srrrrrsss.............',
+  'sssssrsssss.............',
+  'ssussssssss.............',
+  'ssussssssss.............',
+  'sssssssss...uuuuuuuu....',
+  'sssss.sss..ussuuuussu...',
+  'sssss.sss..ussuuuussu...',
+  'sss...sss..uuusuusuuuuu.',
+  'sss..sssruuuuuussurrruu.',
+  'sss..sssruuuuuussurrruu.',
+  '..s..sssruuuuusuusuuruu.',
+  '.....sssrssussuuuussuss.',
+  '.....sssrssussuuuussuss.',
+  '...sssrrruusuuuuuuuusuu.',
+  '.....srrussussuuuussuss.',
+  '.....srrussussuuuussuss.',
+  '.....srrsuuuuusuusuuuuu.',
+  '......rruuuuuuussuuuuuu.',
+  '......rruuuuuuussuuuuuu.',
+  '......rrruuuuusuusuurrrr',
+  '.....sssrrrrssuuurrrr...',
+  '.....sssrrrrssuuurrrr...',
+  '...ssssssssrrrrrrrsssss.',
+  '..sssssss.........ssssss',
+]
+var SPR_PARA_G = [
+  '.....r..............rrr.',
+  '.....r..............rrr.',
+  '...rrrrr..........rrrrrr',
+  '...rrrrrs........rrrrrrr',
+  '...rrrrrs........rrrrrrr',
+  '..sttrrrsss....rrrrrrrr.',
+  '..sttrrrsss...rrrsrrr...',
+  '..sttrrrsss...rrrsrrr...',
+  '..sttrrrsss...rssrrrrrr.',
+  '..srrrrrsss.rrrssrrrrrr.',
+  '..srrrrrsss.rrrssrrrrrr.',
+  'sssssrsssss.rrsrrrrrr...',
+  'sstssssssss.rrsrrrrr.rr.',
+  'sstssssssss.rrsrrrrr.rr.',
+  'sssssssss...rrsrrrrrrrr.',
+  'sssss.sss..tttrssrrrr...',
+  'sssss.sss..tttrssrrrr...',
+  'sss...sss..tttrrrrttttt.',
+  'sss..sssrtttttsttsttttt.',
+  'sss..sssrtttttsttsttttt.',
+  '..s..sssrtttssttttsstss.',
+  '.....sssrsstttttttttstt.',
+  '.....sssrsstttttttttstt.',
+  '...sssrrrttsttttttttstt.',
+  '.....srrtsstssttttsstss.',
+  '.....srrtsstssttttsstss.',
+  '.....srrstttttsttsttttt.',
+  '......rrtttttttsstttttt.',
+  '......rrtttttttsstttttt.',
+  '......rrrtttttsttsttrrrr',
+  '.....sssrrrrsstttrrrr...',
+  '.....sssrrrrsstttrrrr...',
+  '...ssssssssrrrrrrrsssss.',
+  '..sssssss.........ssssss',
+]
+var SPR_PARA_R = [
+  '.....r..............rrr.',
+  '.....r..............rrr.',
+  '...rrrrr..........rrrrrr',
+  '...rrrrrs........rrrrrrr',
+  '...rrrrrs........rrrrrrr',
+  '..suurrrsss....rrrrrrrr.',
+  '..suurrrsss...rrrsrrr...',
+  '..suurrrsss...rrrsrrr...',
+  '..suurrrsss...rssrrrrrr.',
+  '..srrrrrsss.rrrssrrrrrr.',
+  '..srrrrrsss.rrrssrrrrrr.',
+  'sssssrsssss.rrsrrrrrr...',
+  'ssussssssss.rrsrrrrr.rr.',
+  'ssussssssss.rrsrrrrr.rr.',
+  'sssssssss...rrsrrrrrrrr.',
+  'sssss.sss..uuurssrrrr...',
+  'sssss.sss..uuurssrrrr...',
+  'sss...sss..uuurrrruuuuu.',
+  'sss..sssruuuuusuusuuuuu.',
+  'sss..sssruuuuusuusuuuuu.',
+  '..s..sssruuussuuuussuss.',
+  '.....sssrssuuuuuuuuusuu.',
+  '.....sssrssuuuuuuuuusuu.',
+  '...sssrrruusuuuuuuuusuu.',
+  '.....srrussussuuuussuss.',
+  '.....srrussussuuuussuss.',
+  '.....srrsuuuuusuusuuuuu.',
+  '......rruuuuuuussuuuuuu.',
+  '......rruuuuuuussuuuuuu.',
+  '......rrruuuuusuusuurrrr',
+  '.....sssrrrrssuuurrrr...',
+  '.....sssrrrrssuuurrrr...',
+  '...ssssssssrrrrrrrsssss.',
+  '..sssssss.........ssssss',
+]
+var SPR_PIRANHA = [
+  '...vv...............v...',
+  '...vv...............v...',
+  '..vnnqqq.........qqqnvv.',
+  '..vvvq............qqvvv.',
+  '..vvvq............qqvvv.',
+  '..nvvvqqq......qqqvvvnn.',
+  'vvvvvnqq.........qnnvvvv',
+  'vvvvvnqq.........qnnvvvv',
+  'nnvvvvvvqqq...qqqvvvvvvn',
+  'vvvnnvvvq......qqvvvnvvv',
+  'vvvnnvvvq......qqvvvnvvv',
+  'vvvvvvvv.........vvvvvvv',
+  'vvnvvvvvvqq...qvvvvvvnnv',
+  'vvnvvvvvvqq...qvvvvvvnnv',
+  'vvvvvvnnvqq...qvvnvvvvvv',
+  '..nvvvvvvvv...vvvvvvvnn.',
+  '..nvvvvvvvv...vvvvvvvnn.',
+  '..vvvnvvvvv...vvvvnnvvv.',
+  '...vvvvvvnn...nvvvvvv...',
+  '...vvvvvvnn...nvvvvvv...',
+  '.....vnnvvvvvvvvvnvv....',
+  '........vnnvvvnvv.......',
+  '........vnnvvvnvv.......',
+  'nnn........nnn.......nnn',
+  'nnvnnn.....nnn....nnnvvn',
+  'nnvnnn.....nnn....nnnvvn',
+  '..nvvnnn...nnn...nnnvnn.',
+  '..nnnvnnn..nnn.nnnvvnnn.',
+  '..nnnvnnn..nnn.nnnvvnnn.',
+  '...nnnvvn..nnn.nnvnnn...',
+  '...nnnnnvnnnnnnvvnnnn...',
+  '...nnnnnvnnnnnnvvnnnn...',
+  '.....nnnnnnnnnnnnnnn....',
+  '.........nnnnnn.........',
+]
+var SPR_BLOOPER = [
+  '.........wwxxxw.........',
+  '.........wwxxxw.........',
+  '........wxxwwwxww.......',
+  '......wwxwwwwwwxxw......',
+  '......wwxwwwwwwxxw......',
+  '.....wwwxwwwwwwxxwww....',
+  '...wwwxxwwwwwwwwwxwww...',
+  '...wwwxxwwwwwwwwwxwww...',
+  '..wwwwxxwwwwwwwwwxwwwww.',
+  'wwwwwxwwwwwwwwwwwwxxwwww',
+  'wwwwwxwwwwwwwwwwwwxxwwww',
+  '.....xwwwwwwwwwwwwxx....',
+  '.....wwwwwwwwwwwwwww....',
+  '.....wwwwwwwwwwwwwww....',
+  '.....wyyyyyyyyyyyyww....',
+  '.....ywwwyyyyyywwwyy....',
+  '.....ywwwyyyyyywwwyy....',
+  '.....wyyywwyyywyyyww....',
+  '.....wyyywwyyywyyyww....',
+  '.....wyyywwyyywyyyww....',
+  '...wwywwwyyyyyywwwyyw...',
+  '...wwwxxxwwwwwwxxxwww...',
+  '...wwwxxxwwwwwwxxxwww...',
+  '...xxwwwwwwwwwwwwwwwx...',
+  '...www..wwwwwwwww.www...',
+  '...www..wwwwwwwww.www...',
+  '...xxw..xww...wxx.wwx...',
+  '...www..www...www.www...',
+  '...www..www...www.www...',
+  '...xxw..xww...wxx.wwx...',
+  '.....w..www...www.ww....',
+  '.....w..www...www.ww....',
+  '.....w..xww...wxx.ww....',
+  '.....w...ww...w...ww....',
+  '.....w...ww...w...ww....',
+  '.........ww...w.........',
+]
+var SPR_CHEEP = [
+  '.....ssssss.............',
+  '.....ssssss.............',
+  '......ssssssss.rrr......',
+  '.....uuuuuuuuurrrrrr....',
+  '.....uuuuuuuuurrrrrr....',
+  '..ruurrruuuuuurrrrrr....',
+  'rrrrrrrrruuuuurrrrrr....',
+  'rrrrrrrrruuuuurrrrrr....',
+  'rrurrurrruuurrrrrrrr....',
+  'rrurrurrruuurrrrrr......',
+  'rrurrurrruuurrrrrr......',
+  'rrrrrrrrruuurrrrru......',
+  '..ruurrruuuuuuuuuu......',
+  '..ruurrruuuuuuuuuu......',
+  'sssssuuuuuuuuuuuuuuu....',
+  '..usssuuuuuuuuuuuuuu...s',
+  '..usssuuuuuuuuuuuuuu...s',
+  '...uusssuuuuuuuuuuuussss',
+  '...uusssrrruuuuuuuuussss',
+  '...uusssrrruuuuuuuuussss',
+  '..ssssssrrrruuuuuusssss.',
+  '...rrrrrrrrrrrruu.sssss.',
+  '...rrrrrrrrrrrruu.sssss.',
+  '......rrrrrrrr......s...',
+]
+var SPR_HAMMER = [
+  '...tttttt...............',
+  '...tttttt...............',
+  '..trrttttttt............',
+  'ttrrrrtttrrt............',
+  'ttrrrrtttrrt............',
+  '..trrrtttttrtt..........',
+  '..trrrtttttttt..........',
+  '..trrrtttttttt..........',
+  'sssrrsssrssttt..........',
+  'ssssssssrsssrrttt.......',
+  'ssssssssrsssrrttt.......',
+  'ssssssssrssrrrtttttt....',
+  '.....srrsttrttttttttt...',
+  '.....srrsttrttttttttt...',
+  '..ssssrr.ttrrrrtttttrtt.',
+  '........tttsssrrrtsstrr.',
+  '........tttsssrrrtsstrr.',
+  '........tssssssrrstttrr.',
+  '........sssssssrrtsstrrt',
+  '........sssssssrrtsstrrt',
+  '......ssssssssrrrtttsttt',
+  '.....sssssssrrrttttttsss',
+  '.....sssssssrrrttttttsss',
+  '...sssssssstrrttttttsttt',
+  '.........tttrrstttsstttt',
+  '.........tttrrstttsstttt',
+  '......ssstttrrrssstttttt',
+  '......ssssstttrrrrrrttt.',
+  '......ssssstttrrrrrrttt.',
+  '......ssssstttttttrrrrrr',
+  '......sssssstttsssssssss',
+  '......sssssstttsssssssss',
+  '........ssss..tttsssssss',
+  '.........sss......ssssss',
+  '.........sss......ssssss',
+  '....................ssss',
+]
+var SPR_LAKITU = [
+  '........sssssss.........',
+  '........sssssss.........',
+  '......sssssssssss.......',
+  '.....ttttssttttsss......',
+  '.....ttttssttttsss......',
+  '...ttrrrrttrrrrtts......',
+  '...ttrrrrrrrrrrttstt....',
+  '...ttrrrrrrrrrrttstt....',
+  '...ttrrrtrrtrrrttsttt...',
+  '...ttrrrtrrtrrrttsttt...',
+  '...ttrrrtrrtrrrttsttt...',
+  '.....ttttsstttttttttt...',
+  '.....ssssttttttsssssttt.',
+  '.....ssssttttttsssssttt.',
+  '...sssssssstttssssssstt.',
+  '..tssssssssrrrssssssstt.',
+  '..tssssssssrrrssssssstt.',
+  '..trrssssrrrrrrsssssrtt.',
+  '..trrrrrrrrrrrrrrrrrrtt.',
+  '..trrrrrrrrrrrrrrrrrrtt.',
+  'ttrrrrrrrrrrrrrrrrrrrrrt',
+  'ttrrrrrrrttrrrtrrrrrrrrt',
+  'ttrrrrrrrttrrrtrrrrrrrrt',
+  'ttrrrrrrrttrrrtrrrrrrrrt',
+  'ttrrrrrrrttrrrtrrrrrrrrt',
+  'ttrrrrrrrttrrrtrrrrrrrrt',
+  'ttrrrrrrrrrrrrrrrrrrrrrt',
+  'ttrttrrrrrrrrrrrrrrrtrrt',
+  'ttrttrrrrrrrrrrrrrrrtrrt',
+  '..trrrrrtrrrrrrttrrrrtt.',
+  '..trrrrrrttttttrrrrrrtt.',
+  '..trrrrrrttttttrrrrrrtt.',
+  '..trrrrrrrrrrrrrrrrrrtt.',
+  '...ttrrrrrrtttrrrrrrt...',
+  '...ttrrrrrrtttrrrrrrt...',
+  '.....tttttt...tttttt....',
+]
+var SPR_SPINY = [
+  '............rr..........',
+  '............rr..........',
+  '............rr..........',
+  '...........rsss.........',
+  '...........rsss.........',
+  '...rr......rsss......rr.',
+  '...rrs...rrssssss...rss.',
+  '...rrs...rrssssss...rss.',
+  '...rrsss.rrssssss.rrsss.',
+  '...rrssssuussssuursssss.',
+  '...rrssssuussssuursssss.',
+  '...rrrsssuuuuuuuursssss.',
+  '..uuusssuuurrrsuuusssuu.',
+  '..uuusssuuurrrsuuusssuu.',
+  'rrrrruuuurrrsssssuuuuuu.',
+  '..uuuruuussssssssuuuuuuu',
+  '..uuuruuussssssssuuuuuuu',
+  'uuruuurruuussssuuuuurrrr',
+  'uuuuuussruuuuuuuurrrr...',
+  'uuuuuussruuuuuuuurrrr...',
+  '.....ssssrrrrrrrrrsssss.',
+  '...ssssss.........ssssss',
+]
+var SPR_BULLET = [
+  '.........zzzzzzzzzzz.zzz',
+  '.........zzzzzzzzzzz.zzz',
+  '......zzzzzrrrrrrrzz.rrr',
+  '.....zzzzrrzzzzzzzzzAzzz',
+  '.....zzzzrrzzzzzzzzzAzzz',
+  '...zzrzzzzzzzzzzzzzzrzzz',
+  '..zrrrzzzzzzzzzzzzzzAzzz',
+  '..zrrrzzzzzzzzzzzzzzAzzz',
+  'zzrzzrzzzzzzzzAAAzzzAzzz',
+  'zzzrrzzzzzzrzzrrrAzzAzzz',
+  'zzzrrzzzzzzrzzrrrAzzAzzz',
+  'zzzzzzzzrrrrrrrrrAzzAzzz',
+  'zzzzzzzzrrrrrrrzzzzzAzzz',
+  'zzzzzzzzrrrrrrrzzzzzAzzz',
+  '..zzzzzzzrrrrrzzzzzzAzzz',
+  '...zzzzzzzzzzzzzzzzzAzzz',
+  '...zzzzzzzzzzzzzzzzzAzzz',
+  '.....zzzzzzzzzzzzzzzAzzz',
+  '......zzzzzzzzzzzzzz.zzz',
+  '......zzzzzzzzzzzzzz.zzz',
+  '.........zzzzzzzzzzz.zzz',
+]
+var SPR_PODOBOO = [
+  '......uuuuuuuuu......',
+  '......uuuuuuuuu......',
+  '.....uuuuuuuuuuuu....',
+  '...uuuuussssssuuuu...',
+  '...uuuuussssssuuuu...',
+  '..uuuusssssssssuuuuu.',
+  '..uuussssrrrsssssuuu.',
+  '..uuussssrrrsssssuuu.',
+  'uuuuusssrrrrrrsssuuuu',
+  'uuusssrrrrrrrrrsssuuu',
+  'uuusssrrrrrrrrrsssuuu',
+  'uuusssrrrrrrrrrsssuuu',
+  'uuusssrrrrrrrrrsssuuu',
+  'uuusssrrrrrrrrrsssuuu',
+  'uuusssssrrrrrrssssuuu',
+  'uuussssssrrrssssssuuu',
+  'uuussssssrrrssssssuuu',
+  'uuuuusuussssssussuuuu',
+  '..uuuuuuusssuuuuuuuu.',
+  '..uuuuuuusssuuuuuuuu.',
+  '..uuuuuuusssuuuuuuuu.',
+  '...uuu..uuuuuu.uuu...',
+  '...uuu..uuuuuu.uuu...',
+  '.....u...uuu...uu....',
+]
+var SPR_BUZZY = [
+  '.........pppppp.........',
+  '.........pppppp.........',
+  '......pppppppppppp......',
+  '.....ppppppppppppppp....',
+  '.....ppppppppppppppp....',
+  '...pppppppppppnnnpppp...',
+  '..ppppppppppppnqqnppp...',
+  '..ppppppppppppnqqnppp...',
+  '..pppppppppppppnnnppp...',
+  'nnnnnnppppppppppppppppp.',
+  'nnnnnnppppppppppppppppp.',
+  '..pppnnnppppppppppppppp.',
+  '..ppppnnppppppppppppppp.',
+  '..ppppnnppppppppppppppp.',
+  'pppqqpnnppppppppppppppp.',
+  'ppppppnnppppppppppppppp.',
+  'ppppppnnppppppppppppppp.',
+  'ppppppnnppppppppppppppp.',
+  '..pppqnnnppppppppnnnnnnn',
+  '..pppqnnnppppppppnnnnnnn',
+  '...qqqqqnnnpppnnnnqqqqq.',
+  '..qqqqqq.nnnnnn...qqqqqq',
+]
+var SPR_BOWSER = [
+  '............rrr.................',
+  '........ttrrrs..................',
+  '.......tttrrss..................',
+  '.....rrttttsst..................',
+  '.s..trrttttttt..................',
+  's.sttrrtttttttt.................',
+  'sssrrrtttsttttt.................',
+  'ssssrtttssstttt.................',
+  'rsssttssrtsttttrrtttr...........',
+  '.r.sssstttsttttrrttrrst.........',
+  '.r.rrtrttrsttttrrtrrrsstrrr.....',
+  '....r...tsstttrrrttrssttrrs.....',
+  '........rssttrrrtttttttttsstr...',
+  '........ssttrrrtttttttttttttr...',
+  '......rsssttrrrttttttrrrttttt...',
+  '.......ss..ttrrrrrrttrrstttrrr..',
+  '.............ttsssrrttsstttrrs..',
+  '.........sss..r.sssrrtttttttss..',
+  '........ssr.sss.rsstrtttttttttr.',
+  '........ss..ssss..ttrtttrrrtttsr',
+  '........sr.ssssssrttrrttrrsttt..',
+  '........s..sssssttttrrtttssttrr.',
+  '.........r.sssssttttrrtttttttrrr',
+  '...........rsss.tttttrttttrrtss.',
+  '................tttttrrtttsttst.',
+  '.................tttttrrrtttttt.',
+  '..................tttttrrrrtttt.',
+  '..................sttttttrrrrrrr',
+  '.................rrssttssssrrrrr',
+  '................rrrssssssssssrr.',
+  '....................rrssrrssss..',
+  '...................rrrsrrrsssss.',
 ]
 
+/* 原版地面砖 (SMB Ground.png 16x16, 烘焙1.5倍 => 24x24, scale=1) */
 var GOOMBA = [
   '....MMMM....',
   '...MMMMMM...',
@@ -242,8 +755,7 @@ function spriteRunRows(sprite) {
   return rows
 }
 
-/* 精灵离屏 canvas 缓存: 同一张 sprite 只在第一次渲染时画 fillRect, 之后直接 drawImage */
-var _spriteCanvas = new WeakMap()
+/* 精灵离屏 canvas 缓存: 缓存直接挂贴图数组对象属性上(见 spriteToCanvas) */
 var _canCreateCanvas = null
 
 function ensureCanvas(w, h) {
@@ -256,13 +768,24 @@ function ensureCanvas(w, h) {
       return c
     }
   } catch (e) {}
-  _canCreateCanvas = false
+  /* 只有环境完全没有 canvas 能力才禁用全局; 单次尺寸/内存失败(如大离屏 canvas)不毒化后续小 canvas */
+  if (typeof document === 'undefined' || !document.createElement) {
+    _canCreateCanvas = false
+  }
   return null
 }
 
-function spriteToCanvas(sprite, scale, flip) {
-  var key = flip ? ('f_' + sprite) : sprite
-  var canvas = _spriteCanvas.get(key)
+function spriteToCanvas(sprite, scale, flip, cm) {
+  /* 缓存挂到贴图数组对象上 (数组是对象): 避免每帧大字符串拼接 + scale 隔离 */
+  if (!sprite.__canvasCache) sprite.__canvasCache = {}
+  var k = (flip ? 'f' : 'n') + scale
+  if (cm) {
+    /* 换色 key: 颜色映射序列, 同主题复用同一份 canvas (地下/城堡地面/砖块也走快路径) */
+    var cmKey = ''
+    for (var ck in cm) cmKey += ck + '=' + cm[ck] + ';'
+    k += '|' + cmKey
+  }
+  var canvas = sprite.__canvasCache[k]
   if (canvas) return canvas
   var w = sprite[0].length * scale
   var h = sprite.length * scale
@@ -273,17 +796,21 @@ function spriteToCanvas(sprite, scale, flip) {
   var runs = spriteRunRows(sprite)
   for (var r = 0; r < h / scale; r++) {
     var rr = runs[r]
-    for (var k = 0; k < rr.length; k++) {
-      var ch = rr[k][2]
+    for (var kk = 0; kk < rr.length; kk++) {
+      var ch = rr[kk][2]
       if (ch === '.' || ch === ' ') continue
       var color = SPRITE_MAP[ch]
       if (!color) continue
-      var s0 = flip ? w - rr[k][0] * scale - rr[k][1] * scale : rr[k][0] * scale
+      if (cm) {
+        var rep = cm[color]
+        if (rep) color = rep
+      }
+      var s0 = flip ? w - rr[kk][0] * scale - rr[kk][1] * scale : rr[kk][0] * scale
       cctx.fillStyle = color
-      cctx.fillRect(s0, r * scale, rr[k][1] * scale, scale)
+      cctx.fillRect(s0, r * scale, rr[kk][1] * scale, scale)
     }
   }
-  _spriteCanvas.set(key, canvas)
+  sprite.__canvasCache[k] = canvas
   return canvas
 }
 
@@ -306,8 +833,15 @@ function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
     px0 = Math.round(px)
     py0 = Math.round(py)
   }
-  /* colorMap 着色模式 (受伤/无敌闪) 不能用缓存 */
+  /* colorMap 着色模式: object(主题换色, 如地下/城堡) 走缓存快路径; function(受伤/无敌闪) 逐帧 fillRect */
   if (colorMap) {
+    if (typeof colorMap !== 'function') {
+      var cma = spriteToCanvas(sprite, scale, flip, colorMap)
+      if (cma) {
+        ctx.drawImage(cma, px0, py0)
+        return
+      }
+    }
     var runs = spriteRunRows(sprite)
     for (var r = 0; r < h; r++) {
       var rr = runs[r]
@@ -329,7 +863,7 @@ function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
   var cached = spriteToCanvas(sprite, scale, flip)
   if (cached) {
     ctx.drawImage(cached, px0, py0)
-    return
+    return true
   }
   /* 降级: 直接 fillRect */
   var runs = spriteRunRows(sprite)
@@ -913,11 +1447,15 @@ Game.prototype.updateEnemies = function (dt) {
     }
 
     /* ===== 按种类分行为 ===== */
-    if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
-      /* 飞龟: 上下飞 */
+    if (e.kind === 'paratroopa_g') {
+      /* 绿飞龟: 水平飞行 + 波浪起伏 */
       e.flyT = (e.flyT || 0) + dt / 16.667
       e.y = e.baseY + Math.sin(e.flyT * 0.08) * TILE * 0.8
       e.x += e.vx * (dt / 16.667)
+    } else if (e.kind === 'paratroopa_r') {
+      /* 红飞龟: 原地垂直跳 (不横移) */
+      e.flyT = (e.flyT || 0) + dt / 16.667
+      e.y = e.baseY + Math.abs(Math.sin(e.flyT * 0.12)) * TILE * 1.4
     } else if (e.kind === 'bulletbill') {
       /* 子弹比尔: 水平直线飞 */
       e.x += e.vx * (dt / 16.667)
@@ -930,24 +1468,24 @@ Game.prototype.updateEnemies = function (dt) {
         if (e.y > e.baseY) { e.y = e.baseY; e.vy = -e.jumpV; e.t = 0; e.wait = 1500 + Math.random() * 1000 }
       }
     } else if (e.kind === 'piranha') {
-      /* 食人花: 从管道顶部向上弹出再收回, 收回后间隔3s再弹 */
+      /* 食人花: 从管道顶部向上弹出再收回 (原版节奏约3s: 升0.4s/露1.6s/降0.4s/藏0.6s) */
       e.t = (e.t || 0) + dt
       if (e.baseY == null) e.baseY = e.y
-      var cycle = e.t % 6000
+      var cycle = e.t % 3000
       var popDist = e.h /* 完全弹出时底部正好在管道顶 */
-      if (cycle < 800) {
+      if (cycle < 400) {
         /* 向上弹出 */
-        var p = cycle / 800
+        var p = cycle / 400
         e.y = e.baseY - p * popDist
-      } else if (cycle < 2200) {
+      } else if (cycle < 2000) {
         /* 停在上面 */
         e.y = e.baseY - popDist
-      } else if (cycle < 3000) {
+      } else if (cycle < 2400) {
         /* 缩回管道 */
-        var p2 = (cycle - 2200) / 800
+        var p2 = (cycle - 2000) / 400
         e.y = e.baseY - popDist + p2 * popDist
       } else {
-        /* 缩回后等待3秒 */
+        /* 缩回后隐藏 */
         e.y = e.baseY
       }
     } else if (e.kind === 'lavaFireball') {
@@ -969,14 +1507,12 @@ Game.prototype.updateEnemies = function (dt) {
       var floor2 = this.collideTiles(aheadX2, e.y + e.h + 2, 4, 6)
       if (!floor2 && e.vy === 0) { e.x -= e.vx * (dt / 16.667); e.vx = -e.vx }
     } else if (e.kind === 'blooper') {
-      /* 墨鱼: Z字追踪玩家 */
+      /* 墨鱼: 原版Z字 — 水平朝玩家游动, 垂直在自身深度上下波动 */
       e.t = (e.t || 0) + dt
-      var dx = this.player.x - e.x
-      var dy = this.player.y - e.y
-      var dist = Math.sqrt(dx * dx + dy * dy) || 1
-      var sp = 0.9
-      e.x += (dx / dist) * sp * (dt / 16.667)
-      e.y += (dy / dist) * sp * Math.sin(e.t / 150) * 1.8 * (dt / 16.667)
+      if (e.baseY == null) e.baseY = e.y
+      var bdx = this.player.x - e.x
+      e.x += (bdx > 0 ? 1 : -1) * 0.9 * (dt / 16.667)
+      e.y = e.baseY + Math.sin(e.t / 200) * TILE * 0.8
       /* 出屏后从另一侧回来 */
       if (e.y > WORLD_GROUND_Y * TILE || e.y < -TILE * 2) e.y = Math.max(TILE, Math.min(WORLD_GROUND_Y * TILE - TILE, e.y))
     } else if (e.kind === 'cheep') {
@@ -1570,8 +2106,15 @@ Game.prototype.render = function () {
       continue
     }
     var spr
-    if (e.kind === 'koopa' || e.kind === 'redkoopa' || e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
-      spr = KOOPA
+    var sprScale = ENEMY_SPR_SCALE[e.kind]
+    if (e.kind === 'koopa') {
+      spr = SPR_KOOPA_G
+    } else if (e.kind === 'redkoopa') {
+      spr = SPR_KOOPA_R
+    } else if (e.kind === 'paratroopa_g') {
+      spr = SPR_PARA_G
+    } else if (e.kind === 'paratroopa_r') {
+      spr = SPR_PARA_R
     } else if (e.kind === 'lavaFireball') {
       /* 岩浆火球: 橙红火球 */
       ctx.fillStyle = '#ff3300'
@@ -1582,89 +2125,33 @@ Game.prototype.render = function () {
       ctx.fillRect(e.x - cam + 8, e.y + 8, e.w - 16, e.h - 16)
       continue
     } else if (e.kind === 'spiny') {
-      /* 刺龟: 黑色圆身 + 红刺 */
-      ctx.fillStyle = '#222'
-      ctx.fillRect(e.x - cam + 2, e.y + 6, e.w - 4, e.h - 8)
-      ctx.fillStyle = '#c00'
-      ctx.fillRect(e.x - cam + 6, e.y + 2, 4, 6)
-      ctx.fillRect(e.x - cam + 14, e.y + 2, 4, 6)
-      ctx.fillRect(e.x - cam + 10, e.y, 4, 6)
-      continue
+      spr = SPR_SPINY
     } else if (e.kind === 'bulletbill') {
-      /* 子弹比尔: 黑色子弹头 */
-      ctx.fillStyle = '#222'
-      ctx.fillRect(e.x - cam + 4, e.y + 6, e.w - 4, e.h - 12)
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(e.x - cam + 14, e.y + 9, 4, 4)
-      continue
+      spr = SPR_BULLET
     } else if (e.kind === 'podoboo') {
-      /* 帕拉火球: 橙红火球 + 火焰纹理 */
-      ctx.fillStyle = '#ff3300'
-      ctx.fillRect(e.x - cam + 2, e.y + 2, e.w - 4, e.h - 4)
-      ctx.fillStyle = '#ff9900'
-      ctx.fillRect(e.x - cam + 5, e.y + 5, e.w - 10, e.h - 10)
-      ctx.fillStyle = '#ffff00'
-      ctx.fillRect(e.x - cam + 8, e.y + 8, e.w - 16, e.h - 16)
-      continue
+      spr = SPR_PODOBOO
     } else if (e.kind === 'piranha') {
       /* 食人花单独在管道后面渲染 */
       continue
     } else if (e.kind === 'buzzy') {
-      /* 硬壳虫: 黑色圆壳 */
-      ctx.fillStyle = '#333'
-      ctx.fillRect(e.x - cam + 2, e.y + 4, e.w - 4, e.h - 6)
-      ctx.fillStyle = '#666'
-      ctx.fillRect(e.x - cam + 6, e.y + 8, e.w - 12, e.h - 14)
-      continue
+      spr = SPR_BUZZY
     } else if (e.kind === 'blooper') {
-      /* 墨鱼: 白色鱿鱼 */
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(e.x - cam + 4, e.y + 2, e.w - 8, e.h - 8)
-      ctx.fillStyle = '#000'
-      ctx.fillRect(e.x - cam + 8, e.y + 6, 3, 3)
-      ctx.fillRect(e.x - cam + 14, e.y + 6, 3, 3)
-      /* 触手 */
-      ctx.fillRect(e.x - cam + 6, e.y + e.h - 6, 3, 4)
-      ctx.fillRect(e.x - cam + 11, e.y + e.h - 6, 3, 4)
-      ctx.fillRect(e.x - cam + 16, e.y + e.h - 6, 3, 4)
-      continue
+      spr = SPR_BLOOPER
     } else if (e.kind === 'cheep') {
-      /* 跳跳鱼: 红色鱼 */
-      ctx.fillStyle = '#e00'
-      ctx.fillRect(e.x - cam + 2, e.y + 6, e.w - 4, e.h - 12)
-      ctx.fillStyle = '#a00'
-      ctx.fillRect(e.x - cam + 4, e.y + 8, e.w - 8, e.h - 16)
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(e.x - cam + 16, e.y + 8, 3, 3)
-      continue
+      spr = SPR_CHEEP
     } else if (e.kind === 'hammer') {
-      /* 锤子龟: 绿龟身体+头盔+锤子 */
-      ctx.fillStyle = '#33aa33'
-      ctx.fillRect(e.x - cam + 2, e.y + 6, e.w - 4, e.h - 8)
-      ctx.fillStyle = '#ccaa22'
-      ctx.fillRect(e.x - cam + 4, e.y + 10, e.w - 8, e.h - 14)
-      /* 头盔 */
-      ctx.fillStyle = '#333'
-      ctx.fillRect(e.x - cam + 1, e.y, e.w - 2, 7)
-      /* 锤子 */
-      ctx.fillStyle = '#aa8844'
-      ctx.fillRect(e.x - cam - 2, e.y + 8, 6, 4)
-      ctx.fillRect(e.x - cam + e.w - 4, e.y + 8, 6, 4)
-      continue
+      if (e.isProjectile) {
+        /* 抛出的锤子: 小锤色块 */
+        ctx.fillStyle = '#8a5a2b'
+        ctx.fillRect(e.x - cam + 2, e.y + e.h - 6, 5, 3)
+        ctx.fillRect(e.x - cam + e.w - 7, e.y + e.h - 6, 5, 3)
+        ctx.fillStyle = '#c0392b'
+        ctx.fillRect(e.x - cam + 3, e.y + e.h - 3, e.w - 6, 3)
+      } else {
+        spr = SPR_HAMMER
+      }
     } else if (e.kind === 'lakitu') {
-      /* 云龟: 白云+龟 */
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(e.x - cam - 2, e.y + e.h - 4, e.w + 4, 6)
-      ctx.fillRect(e.x - cam + 2, e.y + e.h - 8, e.w - 4, 6)
-      ctx.fillStyle = '#33aa33'
-      ctx.fillRect(e.x - cam + 4, e.y + 2, e.w - 8, e.h - 6)
-      ctx.fillStyle = '#ccaa22'
-      ctx.fillRect(e.x - cam + 6, e.y + 6, e.w - 12, e.h - 12)
-      /* 眼镜 */
-      ctx.fillStyle = '#000'
-      ctx.fillRect(e.x - cam + 8, e.y + 5, 2, 2)
-      ctx.fillRect(e.x - cam + 14, e.y + 5, 2, 2)
-      continue
+      spr = SPR_LAKITU
     } else if (e.kind === 'firebar') {
       /* 火焰棒: 旋转火球串 */
       var cx = e.x - cam + e.w / 2
@@ -1680,20 +2167,9 @@ Game.prototype.render = function () {
       }
       continue
     } else {
-      spr = Math.floor(e.walk) % 2 === 0 ? GOOMBA : GOOMBA_WALK
+      spr = Math.floor(e.walk) % 2 === 0 ? SPR_GOOMBA : SPR_GOOMBA_WALK
     }
-    /* 红龟/红飞龟: 红色壳 */
-    if (e.kind === 'redkoopa' || e.kind === 'paratroopa_r') {
-      ctx.fillStyle = '#c00'
-      ctx.fillRect(e.x - cam + 2, e.y + 2, e.w - 4, e.h - 4)
-    }
-    /* 飞龟: 加白色翅膀 */
-    if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(e.x - cam - 2, e.y + 2, 6, 8)
-      ctx.fillRect(e.x - cam + e.w - 4, e.y + 2, 6, 8)
-    }
-    drawSprite(ctx, spr, undefined, e.x - cam, e.y, e.vx > 0)
+    if (spr) drawSprite(ctx, spr, sprScale || 2, e.x - cam, e.y, e.vx > 0)
   }
 
   /* 强化道具 */
@@ -1726,7 +2202,7 @@ Game.prototype.render = function () {
   if (this.boss && this.boss.alive) {
     var b = this.boss
     if (b.x + b.w > cam && b.x < cam + VIEW_W) {
-      drawSprite(ctx, KOOPA, 4, b.x - cam, b.y, b.vx > 0)
+      drawSprite(ctx, SPR_BOWSER, 3, b.x - cam, b.y, b.vx > 0)
     }
   }
 
@@ -1834,24 +2310,37 @@ Game.prototype.renderTiles = function (ctx, cam) {
   } else if (this.theme === 'castle') {
     themeCM = { '#c75100': '#909090', '#e44c00': '#b0b0b0', '#7c0e00': '#505050', '#000000': '#000000' }
   }
+
+  /* ===== 静态层缓存: 地面/砖块/硬块/已用问号块/管道/旗杆/城堡 只在相机跨瓦片时重绘 ===== */
+  var tileX = Math.floor(cam / TILE) * TILE
+  var c = this._tileCache
+  if (!c || this._tileCacheX !== tileX) {
+    if (!c) c = ensureCanvas(VIEW_W + TILE * 2, VIEW_H)
+    if (c) {
+      this._tileCache = c
+      this._tileCacheX = tileX
+      var cctx = c.getContext('2d')
+      cctx.clearRect(0, 0, c.width, c.height)
+      this._renderStaticTiles(cctx, tileX, themeCM)
+    } else {
+      this._tileCache = null
+      this._tileCacheX = tileX
+    }
+  }
+  if (this._tileCache) {
+    ctx.drawImage(this._tileCache, this._tileCacheX - cam, 0)
+  } else {
+    /* 降级: 大离屏 canvas 不可用 (falcon 等受限运行时) 时, 静态层直接逐帧绘制到主画布.
+       地面/砖块/管道走 drawSprite 快路径(小 canvas) 或逐像素 fillRect, 保证显示正确优先 */
+    this._renderStaticTiles(ctx, cam, themeCM)
+  }
+
+  /* ===== 动态元素: 岩浆动画 + 未用问号块 + 抖动砖 (不缓存, 每帧重画) ===== */
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead || t.x + t.w < cam || t.x > cam + VIEW_W) continue
     var sx = t.x - cam
-    if (t.type === 'ground') {
-      /* 地面: 纯色填充 (无贴图, 省性能) */
-      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#3a6ea5' : '#c84c0c'
-      ctx.fillRect(sx, t.y, t.w, t.h)
-      /* 顶面草线 */
-      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#7ab8e0' : '#e87820'
-      ctx.fillRect(sx, t.y, t.w, 4)
-      /* 砖缝 */
-      ctx.fillStyle = this.theme === 'underground' || this.theme === 'castle' ? '#2a5a8a' : '#8a330c'
-      var gx2 = Math.ceil(t.w / TILE)
-      for (var gg2 = 0; gg2 <= gx2; gg2++) {
-        ctx.fillRect(sx + gg2 * TILE, t.y, 2, Math.min(12, t.h))
-      }
-    } else if (t.type === 'lava') {
+    if (t.type === 'lava') {
       /* 岩浆: 橙红色 + 黄色波纹 */
       ctx.fillStyle = '#ff4400'
       ctx.fillRect(sx, t.y, t.w, t.h)
@@ -1862,18 +2351,14 @@ Game.prototype.renderTiles = function (ctx, cam) {
       }
       ctx.fillStyle = '#ff6600'
       ctx.fillRect(sx, t.y + t.h - 4, t.w, 4)
-    } else if (t.type === 'brick') {
-      var bY = t.bumpT > 0 ? t.y - Math.sin(t.bumpT * 30) * 4 : t.y
+    } else if (t.type === 'brick' && t.bumpT > 0) {
+      /* 被顶的砖: 抖动 */
+      var bY = t.y - Math.sin(t.bumpT * 30) * 4
       drawSprite(ctx, BRICK, undefined, sx, bY, false, themeCM)
-    } else if (t.type === 'qblock') {
-      if (t.used) {
-        drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
-      } else {
-        var qi = Math.floor(this.animT / 110) % QBLOCK.length
-        drawSprite(ctx, QBLOCK[qi], undefined, sx, t.y, false, themeCM)
-      }
-    } else if (t.type === 'hard') {
-      drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
+    } else if (t.type === 'qblock' && !t.used) {
+      /* 未用问号块: 闪烁动画 */
+      var qi = Math.floor(this.animT / 110) % QBLOCK.length
+      drawSprite(ctx, QBLOCK[qi], undefined, sx, t.y, false, themeCM)
     }
   }
 
@@ -1882,29 +2367,47 @@ Game.prototype.renderTiles = function (ctx, cam) {
     var e = this.enemies[pi2]
     if (e.kind !== 'piranha' || !e.alive) continue
     if (e.x + e.w < cam || e.x > cam + VIEW_W) continue
-    var cx = e.x - cam + e.w / 2
-    var hh = e.h * 0.45
-    ctx.fillStyle = '#0a0'
-    ctx.fillRect(cx - 2, e.y + hh, 4, e.h - hh)
-    ctx.fillStyle = '#f00'
-    ctx.fillRect(e.x - cam + 1, e.y, e.w - 2, hh)
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(e.x - cam + 3, e.y + 3, 3, 3)
-    ctx.fillRect(e.x - cam + e.w - 6, e.y + 5, 3, 3)
-    ctx.fillRect(cx - 1, e.y + hh - 6, 3, 3)
-    ctx.fillStyle = '#f00'
-    ctx.fillRect(e.x - cam, e.y + hh, e.w, 3)
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(e.x - cam + 2, e.y + hh + 3, 2, 4)
-    ctx.fillRect(e.x - cam + e.w - 4, e.y + hh + 3, 2, 4)
-    ctx.fillRect(cx - 1, e.y + hh + 3, 2, 5)
+    var pcx = e.x - cam + e.w / 2
+    drawSprite(ctx, SPR_PIRANHA, 1, pcx - 12, e.y, false)
+  }
+}
+
+/* 静态层: 地面/砖块/硬块/已用问号块/管道/旗杆/城堡 (相对 scx 世界坐标绘制) */
+Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
+  for (var i = 0; i < this.tiles.length; i++) {
+    var t = this.tiles[i]
+    if (t.dead || t.x + t.w < scx || t.x > scx + VIEW_W + TILE * 2) continue
+    var sx = t.x - scx
+    if (t.type === 'ground') {
+      /* 性能版地面: 纯色填充 (词典笔软件渲染扛不住贴图平铺), 主体色 + 顶部浅色边保留原版视觉 */
+      var gMain = '#9c4a00', gLight = '#ffcec5'
+      if (this.theme === 'underground') {
+        gMain = '#2890d0'; gLight = '#40b0e8'
+      } else if (this.theme === 'castle') {
+        gMain = '#909090'; gLight = '#b0b0b0'
+      }
+      /* 整块一次 fillRect (负坐标由驱动裁剪), 每帧 2 次调用替代 92 次贴图 blit */
+      ctx.fillStyle = gLight
+      ctx.fillRect(sx, t.y, t.w, Math.min(4, t.h))
+      ctx.fillStyle = gMain
+      ctx.fillRect(sx, t.y + Math.min(4, t.h), t.w, t.h - Math.min(4, t.h))
+    } else if (t.type === 'brick') {
+      if (t.bumpT > 0) continue /* 抖动砖走动态层 */
+      drawSprite(ctx, BRICK, undefined, sx, t.y, false, themeCM)
+    } else if (t.type === 'qblock') {
+      if (t.used) {
+        drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
+      } /* 未用问号块走动态层(闪烁) */
+    } else if (t.type === 'hard') {
+      drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
+    }
   }
 
-  /* 管道: 贴图 (顶盖 + 管身, 在食人花上面) */
+  /* 管道: 贴图 (顶盖 + 管身) */
   for (var p = 0; p < this.pipes.length; p++) {
     var pi = this.pipes[p]
-    if (pi.x + pi.w < cam || pi.x > cam + VIEW_W) continue
-    var psx = pi.x - cam
+    if (pi.x + pi.w < scx || pi.x > scx + VIEW_W + TILE * 2) continue
+    var psx = pi.x - scx
     var rows = Math.round(pi.h / TILE)
     drawSprite(ctx, PIPE_TOP_L, undefined, psx, pi.y, false)
     drawSprite(ctx, PIPE_TOP_R, undefined, psx + TILE, pi.y, false)
@@ -1915,8 +2418,8 @@ Game.prototype.renderTiles = function (ctx, cam) {
   }
 
   /* 旗杆 */
-  if (this.flagX > cam - 200 && this.flagX < cam + VIEW_W + 200) {
-    var fx = this.flagX - cam
+  if (this.flagX > scx - 200 && this.flagX < scx + VIEW_W + TILE * 2 + 200) {
+    var fx = this.flagX - scx
     var baseY = WORLD_GROUND_Y * TILE
     ctx.fillStyle = '#d8d8d8'
     ctx.fillRect(fx - 2, baseY - 140, 4, 140)
@@ -1937,8 +2440,8 @@ Game.prototype.renderTiles = function (ctx, cam) {
   }
 
   /* 城堡 */
-  if (this.castleX > cam - 300 && this.castleX < cam + VIEW_W + 300) {
-    this.renderCastle(ctx, this.castleX - cam)
+  if (this.castleX > scx - 300 && this.castleX < scx + VIEW_W + TILE * 2 + 300) {
+    this.renderCastle(ctx, this.castleX - scx)
   }
 }
 
@@ -2182,7 +2685,7 @@ Game.prototype.renderTitle = function (levelText) {
   ctx.textAlign = 'left'
   /* 角色 */
   drawSprite(ctx, SMALL_STAND, 3, 300, 158, false)
-  drawSprite(ctx, GOOMBA, 3, 620, 164, false)
+  drawSprite(ctx, SPR_GOOMBA, 2, 620, 164, false)
 }
 
 function pad2(n) {
