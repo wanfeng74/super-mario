@@ -1113,9 +1113,9 @@ Game.prototype.loadLevel = function (levelIdx) {
       var gy = (WORLD_GROUND_Y + 2 - gh) * TILE
       this.tiles.push({ type: 'ground', x: s.x * TILE, y: gy, w: s.w * TILE, h: gh * TILE })
     } else if (s.t === 'l') {
-      /* 岩浆 (碰到就死, 和地面顶对齐) */
+      /* 岩浆 (碰到就死) */
       var lh = s.h || 1
-      var ly = (WORLD_GROUND_Y + 1 - lh) * TILE
+      var ly = s.y != null ? s.y * TILE : (WORLD_GROUND_Y + 1 - lh) * TILE
       this.tiles.push({ type: 'lava', x: s.x * TILE, y: ly, w: s.w * TILE, h: lh * TILE })
       /* 记录岩浆位置用于喷火球/岩浆死亡判定 (含完整 rect, 供 checkLavaHit 复用避免全量扫 tiles) */
       this.lavaList.push({ x: s.x * TILE, y: ly, w: s.w * TILE, h: lh * TILE })
@@ -1272,7 +1272,7 @@ Game.prototype.loadLevel = function (levelIdx) {
       /* 库巴 BOSS: 原版 2x2 瓦片 (玩家 2 倍大, 32x32 NES x1.5), 脚底贴桥面/地面 */
       this.boss = {
         x: s.x * TILE,
-        y: (WORLD_GROUND_Y - 3) * TILE, /* 底贴桥顶 (桥面在 WORLD_GROUND_Y-1 行) */
+        y: s.y != null ? s.y * TILE : (WORLD_GROUND_Y - 5) * TILE, /* 底贴桥顶 (桥面 WORLD_GROUND_Y-3 行) */
         w: 2 * TILE,
         h: 2 * TILE,
         vx: -ENEMY_SPD * 1.5,
@@ -1285,10 +1285,11 @@ Game.prototype.loadLevel = function (levelIdx) {
         throwT: 0,
       }
     } else if (s.t === 'br') {
-      /* 原版斧头桥: 每格一段 (one-way 平台, 桥塌时逐段消失) */
+      /* 原版斧头桥: 每格一段 (one-way 平台, 桥塌时逐段消失); 桥在上方, 桥下岩浆 */
       var bw = s.w || 1
+      var bry = s.y != null ? s.y * TILE : (WORLD_GROUND_Y - 1) * TILE
       for (var bi2 = 0; bi2 < bw; bi2++) {
-        var btile = { type: 'bridge', x: (s.x + bi2) * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE, dead: false }
+        var btile = { type: 'bridge', x: (s.x + bi2) * TILE, y: bry, w: TILE, h: TILE, dead: false }
         this.tiles.push(btile)
         this.bridges.push(btile)
       }
@@ -1521,8 +1522,9 @@ Game.prototype.checkLavaHit = function () {
   var lava = this.lavaList
   for (var i = 0; i < lava.length; i++) {
     var t = lava[i]
+    /* 严格大于: 脚底恰好等于岩浆表面(站池边地面)不算掉入, 只有真正进入岩浆内部才死 (原版) */
     if (footX >= t.x && footX <= t.x + t.w &&
-        footY >= t.y && footY <= t.y + t.h) {
+        footY > t.y && footY <= t.y + t.h) {
       this.killPlayer(false)
       return
     }
@@ -1641,6 +1643,7 @@ Game.prototype.collideTiles = function (x, y, w, h) {
           if (h <= 8 && y <= bt.y && y + h > bt.y) return bt
           continue
         }
+        if (bt.type === 'lava') continue /* 岩浆不是实心体: 穿过, 死亡判定走 lavaList (原版掉入即死) */
         if (rectsHit(x, y, w, h, bt.x, bt.y, bt.w, bt.h)) return bt
       }
     }
@@ -1653,6 +1656,7 @@ Game.prototype.collideTiles = function (x, y, w, h) {
       if (h <= 8 && y <= t.y && y + h > t.y) return t
       continue
     }
+    if (t.type === 'lava') continue /* 岩浆不是实心体 */
     if (rectsHit(x, y, w, h, t.x, t.y, t.w, t.h)) return t
   }
   return null
@@ -1703,6 +1707,8 @@ Game.prototype.updateEnemies = function (dt) {
       if (e.squashT > 0) keep.push(e)
       continue
     }
+    /* 掉出地图 (坑/岩浆下): 移除 (原版掉坑即死) */
+    if (e.y > this.worldH + 120) continue
     /* 怪物激活: 玩家进入屏幕范围后才开始移动 */
     if (!e.activated) {
       /* 地面怪物激活距离稍远, 刷在砖块/空中的怪物激活距离更短 */
@@ -2163,7 +2169,7 @@ Game.prototype.updateBoss = function (dt) {
   for (var lvi = 0; lvi < this.lavaList.length; lvi++) {
     var lv = this.lavaList[lvi]
     if (bFootX >= lv.x && bFootX <= lv.x + lv.w &&
-        bFootY >= lv.y && bFootY <= lv.y + lv.h) {
+        bFootY > lv.y && bFootY <= lv.y + lv.h) {
       b.alive = false
       /* 原版: 库巴坠岩浆死亡, 无分数; 溅起火花 */
       this.particles.push({ kind: 'puff', x: b.x + b.w / 2, y: b.y + b.h - 8, t: 0, vx: (Math.random() - 0.5) * 4, vy: -4 })
