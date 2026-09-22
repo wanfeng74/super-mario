@@ -101,16 +101,26 @@ for (let lv = 1; lv <= LEVELS.length; lv++) {
   ok('1up -> lives+1', g.lives === before + 1, g.lives)
 }
 
-/* 6. 1-4 城堡关: BOSS 存在, 斧头通关 */
+/* 6. 1-4 城堡关: BOSS 存在, 摸斧头 → 桥逐段塌陷 → 库巴坠岩浆 → 通关 (原版) */
 {
   const g = createGame(ctx, {})
   g.start({ level: 4 })
   ok('boss spawned', !!g.boss && g.boss.alive)
   ok('axe present', !!g.axe && !g.axe.taken)
+  ok('bridge present', g.bridges.length >= 8, 'bridge=' + g.bridges.length)
   /* 传送玩家到斧头旁并触发拾取 */
   g.player.x = g.axe.x - 4
   g.player.y = g.axe.y - g.player.h + 6
   g.tick(16)
+  ok('axe taken -> bridge collapse starts', g.axe.taken && g.bridgeCollapse, 'taken=' + g.axe.taken)
+  /* 桥从左往右逐段塌陷 */
+  const before = g.bridges.filter((t) => t.dead).length
+  for (let f = 0; f < 60; f++) g.tick(16)
+  const after = g.bridges.filter((t) => t.dead).length
+  ok('bridge collapses segment by segment', after > before, before + '->' + after)
+  /* 库巴坠入岩浆死亡 (桥全塌 + boss 死 → clear) */
+  for (let f = 0; f < 400; f++) g.tick(16)
+  ok('boss dies in lava after axe', !g.boss || !g.boss.alive, 'alive=' + (g.boss && g.boss.alive))
   ok('axe -> COURSE CLEAR', g.state === 'clear', g.state)
 }
 

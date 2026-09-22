@@ -764,6 +764,39 @@ var SPR_BOWSER = [
   '...................rrrsrrrsssss.',
 ]
 
+/* 原版斧头桥: 灰色金属链节 (SMB 城堡关桥面 tile, 12x12 烘焙 2x => 24x24)
+   D=黑底, X=中灰链, W=浅灰高光 */
+var SPR_BRIDGE = [
+  '.DXXXXXXXXXD.',
+  '.DXWXXXXXWXD.',
+  '..XXDDDDDDXX.',
+  '..XXDDDDDDXX.',
+  '..DDXXDDXXDD.',
+  '..DDXXDDXXDD.',
+  '..DDXXDDXXDD.',
+  '..DDXXDDXXDD.',
+  '..XXDDDDDDXX.',
+  '..XXDDDDDDXX.',
+  '.DXWXXXXXWXD.',
+  '.DXXXXXXXXXD.',
+]
+
+/* 原版斧头 (SMB 城堡关斧头 sprite: 红色斧刃+白色高光+棕色柄, 8x12 烘焙 2x => 16x24) */
+var SPR_AXE = [
+  '.RRRR...',
+  'RRRRRR..',
+  'RRRRRRR.',
+  'RRRRRRRR',
+  'RRRRRRR.',
+  '.WWWW...',
+  '..MM....',
+  '..MM....',
+  '..MM....',
+  '..MM....',
+  '..MM....',
+  '..MM....',
+]
+
 /* 原版地面砖 (SMB Ground.png 16x16, 烘焙1.5倍 => 24x24, scale=1) */
 var GOOMBA = [
   '....MMMM....',
@@ -1041,6 +1074,11 @@ Game.prototype.reset = function () {
   this.powerups = []
   this.fireballs = []
   this.axe = null
+  /* 原版斧头桥: 摸斧头后桥从左往右逐段塌陷 (bridges 每格一段) */
+  this.bridges = []
+  this.bridgeCollapse = false
+  this.bridgeTimer = 0
+  this.bridgeIdx = 0
   this.boss = null
   this.player = null
   this.flagX = 0
@@ -1231,16 +1269,28 @@ Game.prototype.loadLevel = function (levelIdx) {
         t: Math.random() * 3000,
       })
     } else if (s.t === 'boss') {
-      /* 库巴 BOSS (4x4 瓦片) */
+      /* 库巴 BOSS: 原版 2x2 瓦片 (玩家 2 倍大, 32x32 NES x1.5), 脚底贴桥面/地面 */
       this.boss = {
         x: s.x * TILE,
-        y: s.y * TILE,
-        w: 4 * TILE,
-        h: 4 * TILE,
+        y: (WORLD_GROUND_Y - 3) * TILE, /* 底贴桥顶 (桥面在 WORLD_GROUND_Y-1 行) */
+        w: 2 * TILE,
+        h: 2 * TILE,
         vx: -ENEMY_SPD * 1.5,
         alive: true,
         walk: 0,
         fireT: 0,
+        /* 原版: 1-4~7-4 是假库巴 (decoy), 8-4 真库巴; 假库巴被火球打死后现原形 */
+        isDecoy: this.level < 32,
+        hurtT: 0,
+        throwT: 0,
+      }
+    } else if (s.t === 'br') {
+      /* 原版斧头桥: 每格一段 (one-way 平台, 桥塌时逐段消失) */
+      var bw = s.w || 1
+      for (var bi2 = 0; bi2 < bw; bi2++) {
+        var btile = { type: 'bridge', x: (s.x + bi2) * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE, dead: false }
+        this.tiles.push(btile)
+        this.bridges.push(btile)
       }
     } else if (s.t === 'x') {
       /* 斧头 (断桥通关) */
@@ -1438,6 +1488,16 @@ Game.prototype.movePlayerY = function () {
       }
       break
     }
+    /* 原版斧头桥 (one-way): 下落中脚底跨过桥顶线才站上, 上升/水平穿过 */
+    if (dir > 0) {
+      var bhit = this.collideTiles(p.x, p.y + p.h - 4, p.w, 8)
+      if (bhit && bhit.type === 'bridge') {
+        p.y = bhit.y - p.h
+        p.vy = 0
+        p.onGround = true
+        break
+      }
+    }
   }
   /* 顶部空气墙: 不能跳出地图顶端 */
   if (p.y < 0) {
@@ -1575,6 +1635,12 @@ Game.prototype.collideTiles = function (x, y, w, h) {
       for (var bi = 0; bi < bucket.length; bi++) {
         var bt = bucket[bi]
         if (bt.dead) continue
+        if (bt.type === 'bridge') {
+          /* 原版斧头桥 = one-way 平台: 只有"落地探针"(小高度且跨过桥顶线)命中,
+             上升/水平/头顶探针一律穿过 (原版可从桥下跳穿) */
+          if (h <= 8 && y <= bt.y && y + h > bt.y) return bt
+          continue
+        }
         if (rectsHit(x, y, w, h, bt.x, bt.y, bt.w, bt.h)) return bt
       }
     }
@@ -1583,6 +1649,10 @@ Game.prototype.collideTiles = function (x, y, w, h) {
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead) continue
+    if (t.type === 'bridge') {
+      if (h <= 8 && y <= t.y && y + h > t.y) return t
+      continue
+    }
     if (rectsHit(x, y, w, h, t.x, t.y, t.w, t.h)) return t
   }
   return null
@@ -1600,6 +1670,10 @@ Game.prototype.collideTileList = function (x, y, w, h) {
       for (var bi = 0; bi < bucket.length; bi++) {
         var bt = bucket[bi]
         if (bt.dead) continue
+        if (bt.type === 'bridge') {
+          if (h <= 8 && y <= bt.y && y + h > bt.y) out.push(bt)
+          continue
+        }
         if (rectsHit(x, y, w, h, bt.x, bt.y, bt.w, bt.h)) out.push(bt)
       }
     }
@@ -1608,6 +1682,10 @@ Game.prototype.collideTileList = function (x, y, w, h) {
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead) continue
+    if (t.type === 'bridge') {
+      if (h <= 8 && y <= t.y && y + h > t.y) out.push(t)
+      continue
+    }
     if (rectsHit(x, y, w, h, t.x, t.y, t.w, t.h)) out.push(t)
   }
   return out
@@ -1997,24 +2075,28 @@ Game.prototype.updateEnemies = function (dt) {
   this.enemies = keep
 }
 
-/* 库巴 BOSS 更新 */
+/* 库巴 BOSS 更新 (严格原版 SMB: 巡逻桥上、偶尔跳跃、喷火、6-4/7-4/8-4 扔锤;
+   踩/碰都受伤 (TMK Stomp=xx), 火球 5 发可杀, 标准击杀 = 摸斧头砍桥坠岩浆) */
 Game.prototype.updateBoss = function (dt) {
   var b = this.boss
   var p = this.player
   if (!b || !b.alive) return
-  /* 巡逻: 撞墙/无地面掉头; 且不越过终点 (斧头/旗杆) */
+  if (b.hurtT > 0) b.hurtT -= dt
+
+  /* 巡逻: 撞墙/无地面掉头; 只在桥面上 (原版库巴不离开桥), 右端不越过斧头 */
   var patrolMax = this.axe ? this.axe.x - TILE : (this.flagX > 0 ? this.flagX - TILE : Infinity)
+  var patrolMin = this.bridges && this.bridges.length > 0 ? this.bridges[0].x : -Infinity
   b.x += b.vx * (dt / 16.667)
   var aheadX = b.vx > 0 ? b.x + b.w + 2 : b.x - 2
   var wall = this.collideTiles(aheadX, b.y + 4, 2, b.h - 8)
   var floor = this.collideTiles(aheadX, b.y + b.h + 2, 4, 6)
-  if (wall || !floor || (b.vx > 0 && b.x + b.w > patrolMax)) {
+  if (wall || !floor || (b.vx > 0 && b.x + b.w > patrolMax) || (b.vx < 0 && b.x <= patrolMin)) {
     b.x -= b.vx * (dt / 16.667)
     b.vx = -b.vx
   }
   b.walk += dt / 60
 
-  /* 跳跃: 原版库巴会跳, 每 2.5~4 秒跳一次 */
+  /* 跳跃: 原版库巴偶尔跳, 跳跃时玩家可从身下穿过拿斧头 */
   b.jumpT = (b.jumpT || 0) - dt
   if (!b.vy) b.vy = 0
   if (b.jumpT <= 0 && b.vy === 0) {
@@ -2023,13 +2105,14 @@ Game.prototype.updateBoss = function (dt) {
   }
   b.vy = Math.min(b.vy + GRAVITY * (dt / 16.667), MAX_FALL)
   b.y += b.vy * (dt / 16.667)
-  var bossLand = this.collideTiles(b.x, b.y + b.h, b.w, 4)
+  /* 落地检测用 8px 窗口 (底-4~底+4): 帧位移最大 6.24px, 4px 窗口会隧穿跳过桥顶线 (原版 1px 步进) */
+  var bossLand = this.collideTiles(b.x, b.y + b.h - 4, b.w, 8)
   if (bossLand && b.vy > 0) {
     b.y = bossLand.y - b.h
     b.vy = 0
   }
 
-  /* 喷火: 原版每次连喷 2~3 个火球 (间隔约 180ms), 火球水平抛物线 */
+  /* 喷火: 原版主要攻击, 火球射向玩家当前位置 */
   b.fireT = (b.fireT || 0) - dt
   b.burst = (b.burst || 0)
   b.burstT = (b.burstT || 0) - dt
@@ -2041,7 +2124,6 @@ Game.prototype.updateBoss = function (dt) {
   if (b.burst > 0 && b.burstT <= 0) {
     b.burst--
     b.burstT = 180
-    /* 火球射向玩家当前位置 (原版库巴火球朝马里奥方向抛物线) */
     var bm = { x: b.x + b.w / 2, y: b.y + 12 }
     var pm = { x: p.x + p.w / 2, y: p.y + p.h / 2 }
     var bdx = pm.x - bm.x
@@ -2061,7 +2143,36 @@ Game.prototype.updateBoss = function (dt) {
     })
   }
 
-  /* 与玩家碰撞 */
+  /* 6-4/7-4/8-4 (本作 LEVEL_24/28/32): 原版额外扔锤子 */
+  if (this.level >= 24) {
+    b.throwT = (b.throwT || 0) + dt
+    if (b.throwT > 1600 && p.x > b.x - 300 && p.x < b.x + 500) {
+      b.throwT = 0
+      var hdir = p.x > b.x ? 1 : -1
+      this.enemies.push({
+        x: b.x + b.w / 2, y: b.y, w: TILE * 0.6, h: TILE * 0.6,
+        vx: hdir * 3, vy: -5, alive: true, squashed: false, squashT: 0, walk: 0,
+        kind: 'hammer', isProjectile: true, t: 0, life: 120,
+      })
+    }
+  }
+
+  /* 掉入岩浆 (桥被砍断后坠落): 死亡, 不加分 (原版斧头击杀无分) */
+  var bFootX = b.x + b.w / 2
+  var bFootY = b.y + b.h
+  for (var lvi = 0; lvi < this.lavaList.length; lvi++) {
+    var lv = this.lavaList[lvi]
+    if (bFootX >= lv.x && bFootX <= lv.x + lv.w &&
+        bFootY >= lv.y && bFootY <= lv.y + lv.h) {
+      b.alive = false
+      /* 原版: 库巴坠岩浆死亡, 无分数; 溅起火花 */
+      this.particles.push({ kind: 'puff', x: b.x + b.w / 2, y: b.y + b.h - 8, t: 0, vx: (Math.random() - 0.5) * 4, vy: -4 })
+      this.particles.push({ kind: 'puff', x: b.x + b.w / 2 - 8, y: b.y + b.h - 8, t: 0, vx: (Math.random() - 0.5) * 4, vy: -3.5 })
+      return
+    }
+  }
+
+  /* 与玩家碰撞: 原版踩/碰库巴都受伤 (TMK Stomp=xx "not harmed, but harms Mario"; 头上有角) */
   if (rectsHit(p.x, p.y, p.w, p.h, b.x, b.y, b.w, b.h)) {
     if (p.starTimer > 0) {
       this.hurtBoss(3)
@@ -2070,14 +2181,7 @@ Game.prototype.updateBoss = function (dt) {
       return
     }
     if (this.invuln > 0) return
-    var stomping = p.vy > 0 && this.playerBottomPrev <= b.y + 6
-    if (stomping) {
-      /* 踩库巴普通形态无效, 弹开 */
-      p.vy = STOMP_V
-      p.onGround = false
-    } else {
-      this.hurtPlayer()
-    }
+    this.hurtPlayer()
   }
 }
 
@@ -2256,6 +2360,12 @@ Game.prototype.updateItems = function (dt) {
     } else if (pt.kind === 'text') {
       pt.y -= 0.8 * (dt / 16.667)
       if (pt.t < 0.8) keep.push(pt)
+    } else if (pt.kind === 'puff') {
+      /* 库巴坠岩浆溅起: 短暂橙色粒子 */
+      pt.x += (pt.vx || 0) * (dt / 16.667)
+      pt.y += pt.vy * (dt / 16.667)
+      pt.vy += 0.4 * (dt / 16.667)
+      if (pt.t < 0.5) keep.push(pt)
     }
   }
   this.particles = keep
@@ -2266,10 +2376,22 @@ Game.prototype.hurtBoss = function (dmg) {
   var b = this.boss
   if (!b || !b.alive) return
   b.hp = (b.hp || 5) - dmg
+  b.hurtT = 250
   if (b.hp <= 0) {
     b.alive = false
     this.score += 5000
-    this.particles.push({ kind: 'text', x: b.x, y: b.y - 8, t: 0 })
+    /* 原版: 假库巴被火球打死后现原形 (TMK: decoys are normal enemies with Bowser's power;
+       2-4 假库巴真身是绿龟 per MarioWiki, 其余为栗子仔类) */
+    if (b.isDecoy) {
+      var dk = this.level === 8 ? 'koopa' : 'goomba'
+      var dy = (WORLD_GROUND_Y - (dk === 'koopa' ? 1.5 : 1)) * TILE
+      this.enemies.push({
+        x: b.x, y: dy, w: TILE, h: dk === 'koopa' ? TILE * 1.5 : TILE,
+        vx: -ENEMY_SPD, alive: true, squashed: false, squashT: 0, walk: 0,
+        shell: 0, shellT: 0, kind: dk,
+      })
+    }
+    this.particles.push({ kind: 'text', x: b.x, y: b.y - 8, t: 0, text: '5000' })
   }
 }
 
@@ -2433,17 +2555,29 @@ Game.prototype.tick = function (dtMs) {
     if (p.starTimer < 0) p.starTimer = 0
   }
 
-  /* 斧头拾取 → 断桥通关 */
+  /* 斧头拾取 → 桥从左往右逐段塌陷, 库巴坠入岩浆 (原版: axe cuts the rope, bridge retracts, Bowser falls) */
   if (this.axe && !this.axe.taken && this.state === 'playing' &&
       rectsHit(p.x, p.y, p.w, p.h, this.axe.x, this.axe.y, this.axe.w, this.axe.h)) {
     this.axe.taken = true
-    if (this.boss) {
-      this.boss.alive = false
-      this.score += 5000
-    }
+    this.bridgeCollapse = true
+    this.bridgeTimer = 0
+    this.bridgeIdx = 0
     this.score += 500
-    this.state = 'clear'
-    this.stateTimer = 0
+  }
+
+  /* 桥塌动画: 每 120ms 从最左段开始逐段消失, 库巴脚下桥段没了就坠入岩浆 */
+  if (this.bridgeCollapse && this.state === 'playing') {
+    this.bridgeTimer += dt
+    while (this.bridgeTimer >= 120 && this.bridgeIdx < this.bridges.length) {
+      this.bridgeTimer -= 120
+      this.bridges[this.bridgeIdx].dead = true
+      this.bridgeIdx++
+    }
+    /* 桥全部塌完且库巴已坠入岩浆 → 通关 */
+    if (this.bridgeIdx >= this.bridges.length && (!this.boss || !this.boss.alive)) {
+      this.state = 'clear'
+      this.stateTimer = 0
+    }
   }
 
   /* 相机 */
@@ -2591,30 +2725,23 @@ Game.prototype.render = function () {
     ctx.fillRect(f.x - cam + 5, f.y + 5, f.w - 10, f.h - 10)
   }
 
-  /* 库巴 BOSS */
+  /* 库巴 BOSS (原版 2x2 瓦片: SPR_BOWSER 32x32 x1.5 = 48x48; 受击闪白) */
   if (this.boss && this.boss.alive) {
     var b = this.boss
     if (b.x + b.w > cam && b.x < cam + VIEW_W) {
-      drawSprite(ctx, SPR_BOWSER, 3, b.x - cam, b.y, b.vx > 0)
+      if (b.hurtT > 0) {
+        drawSprite(ctx, SPR_BOWSER, 1.5, b.x - cam, b.y, b.vx > 0, function () { return C_WHITE })
+      } else {
+        drawSprite(ctx, SPR_BOWSER, 1.5, b.x - cam, b.y, b.vx > 0)
+      }
     }
   }
 
-  /* 斧头 */
+  /* 斧头 (原版贴图: 红刃+白高光+棕柄) */
   if (this.axe && !this.axe.taken) {
     var ax = this.axe
     if (ax.x + ax.w > cam && ax.x < cam + VIEW_W) {
-      ctx.fillStyle = '#9aa0ae'
-      ctx.fillRect(ax.x - cam, ax.y + 6, 5, 18)
-      ctx.fillRect(ax.x - cam + 14, ax.y + 6, 5, 18)
-      ctx.fillStyle = '#e8a05a'
-      ctx.beginPath()
-      ctx.moveTo(ax.x - cam, ax.y + 6)
-      ctx.lineTo(ax.x - cam + 4, ax.y - 2)
-      ctx.lineTo(ax.x - cam + 16, ax.y + 2)
-      ctx.lineTo(ax.x - cam + 16, ax.y + 10)
-      ctx.lineTo(ax.x - cam + 4, ax.y + 6)
-      ctx.closePath()
-      ctx.fill()
+      drawSprite(ctx, SPR_AXE, undefined, ax.x - cam, ax.y, false)
     }
   }
 
@@ -2821,6 +2948,9 @@ Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
       } /* 未用问号块走动态层(闪烁) */
     } else if (t.type === 'hard') {
       drawSprite(ctx, HARD, undefined, sx, t.y, false, themeCM)
+    } else if (t.type === 'bridge') {
+      /* 原版斧头桥: 灰色链节贴图 (塌陷的段 dead 跳过) */
+      drawSprite(ctx, SPR_BRIDGE, undefined, sx, t.y, false)
     }
   }
 
@@ -2953,6 +3083,12 @@ Game.prototype.renderParticles = function (ctx, cam) {
       ctx.font = 'bold 14px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(pt.text || '1000', sx, pt.y)
+    } else if (pt.kind === 'puff') {
+      /* 岩浆溅落: 橙红火花 */
+      ctx.fillStyle = '#ff8822'
+      ctx.fillRect(sx - 2, pt.y - 2, 5, 5)
+      ctx.fillStyle = '#ff4400'
+      ctx.fillRect(sx - 5, pt.y + 2, 4, 4)
     }
   }
 }

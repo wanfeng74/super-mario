@@ -204,5 +204,67 @@ function findEnemy(g, kind) {
   }
 }
 
+/* ============ 5. 库巴严格原版: 桥/斧头/踩踏/火球/假库巴 ============ */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 4 })
+  const b = g.boss
+  ok('boss is 2x2 tiles (原版玩家2倍)', b && b.w === 48 && b.h === 48, b && b.w + 'x' + b.h)
+  ok('1-4 boss is decoy (假库巴)', b && b.isDecoy === true)
+  ok('bridge present (斧头桥)', g.bridges.length >= 8, 'bridge=' + g.bridges.length)
+  ok('bridge is one-way (h=24 body not blocked)', g.collideTiles(g.bridges[5].x, g.bridges[5].y - 10, 24, 24) === null || g.collideTiles(g.bridges[5].x, g.bridges[5].y - 10, 24, 24).type !== 'bridge')
+  /* 摸斧头 -> 桥逐段塌 -> 库巴坠岩浆 -> 通关 */
+  g.player.x = g.axe.x - 4
+  g.player.y = g.axe.y - g.player.h + 6
+  g.tick(16)
+  ok('axe taken -> bridge collapse', g.axe.taken && g.bridgeCollapse)
+  for (let f = 0; f < 400; f++) g.tick(16)
+  ok('bridge fully collapsed', g.bridges.every((t) => t.dead))
+  ok('boss dies in lava after axe', !g.boss.alive)
+  ok('course clear after collapse', g.state === 'clear', g.state)
+}
+
+/* ============ 6. 踩库巴 = 受伤 (原版 Stomp=xx) ============ */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 4 })
+  const b = g.boss
+  g.player.x = b.x + b.w / 2 - g.player.w / 2
+  g.player.y = b.y - g.player.h - 2
+  g.player.vy = 5
+  g.tick(16)
+  ok('stomp boss -> hurt (not bounce, 原版踩库巴受伤)', g.state === 'dead' || g.invuln > 0 || g.player.power !== 'small' || g.lives < 3, 'state=' + g.state)
+  ok('boss NOT killed by stomp', b.alive)
+}
+
+/* ============ 7. 火球 5 发击杀假库巴 -> 现原形 (原版 Fire=5000) ============ */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 4 })
+  const b = g.boss
+  for (let i = 0; i < 5; i++) g.hurtBoss(1)
+  ok('5 fireballs kill decoy', !b.alive)
+  const decoy = g.enemies.find((e) => e.kind === 'goomba' || e.kind === 'koopa')
+  ok('decoy reveals true form (1-4 goomba)', !!decoy && decoy.kind === 'goomba')
+  ok('decoy kill gives 5000', g.score >= 5000)
+}
+
+/* ============ 8. 8-4 真库巴 + 6-4 扔锤 (原版) ============ */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 32 })
+  ok('8-4 boss is REAL bowser', g.boss && g.boss.isDecoy === false)
+  ok('8-4 has bridge', g.bridges.length >= 8)
+}
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 24 })
+  const b = g.boss
+  g.player.x = b.x + 100
+  b.throwT = 1700
+  g.updateBoss(16)
+  ok('6-4 boss throws hammer (原版扔锤关)', g.enemies.some((e) => e.kind === 'hammer' && e.isProjectile))
+}
+
 console.log(`\n==== ${pass} passed, ${fail} failed ====`)
 process.exit(fail > 0 ? 1 : 0)

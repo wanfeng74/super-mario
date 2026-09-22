@@ -101,10 +101,19 @@ ctx.fill = function () {
 }
 
 const level = parseInt(process.argv[2] || '1')
+const camTo = process.argv[3] ? parseInt(process.argv[3]) : -1
 const g = createGame(ctx, {})
 g.start({ level, lives: 3 })
 // 前进若干 tick 让场景滚起来
 for (let f = 0; f < 20; f++) g.tick(16)
+if (camTo >= 0) {
+  g.camX = Math.max(0, Math.min(camTo, g.worldW - 960))
+  g.player.x = g.camX + 200
+  g.player.y = 240 - g.player.h
+  g.player.vx = 0; g.player.vy = 0; g.player.onGround = true
+  // 关闭无敌星计时干扰
+  for (let f = 0; f < 2; f++) g.tick(16)
+}
 g.render()
 writeFileSync('/tmp/frame.raw', Buffer.from(buf))
 console.log('frame saved, level', level)
