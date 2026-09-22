@@ -266,5 +266,28 @@ function findEnemy(g, kind) {
   ok('6-4 boss throws hammer (原版扔锤关)', g.enemies.some((e) => e.kind === 'hammer' && e.isProjectile))
 }
 
+/* ============ 9. 无敌星岩浆屏蔽 (原版无敌星接触火焰免疫) ============ */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 4 })
+  const p = g.player
+  p.x = 11 * 24 /* 池 x=10-14 正上方 */; p.y = 120; p.vy = 2; p.starTimer = 10000
+  let dead = false, landed = false
+  for (let f = 0; f < 90; f++) {
+    g.tick(16)
+    if (g.state === 'dead') { dead = true; break }
+    if (p.onGround && Math.abs(p.y + p.h - 240) < 2) { landed = true; break }
+  }
+  ok('无敌掉岩浆: 站岩浆表面不死', landed && !dead && p.y + p.h === 240)
+  /* 无敌结束 → 下沉 → 掉入岩浆死 */
+  p.starTimer = 16
+  dead = false
+  for (let f = 0; f < 20; f++) {
+    g.tick(16)
+    if (g.state === 'dead') { dead = true; break }
+  }
+  ok('无敌结束站岩浆表面 → 下沉死亡', dead)
+}
+
 console.log(`\n==== ${pass} passed, ${fail} failed ====`)
 process.exit(fail > 0 ? 1 : 0)

@@ -1498,6 +1498,18 @@ Game.prototype.movePlayerY = function () {
         p.onGround = true
         break
       }
+      /* 无敌星: 岩浆表面像平台一样可站 (原版无敌星接触火焰免疫; 本作岩浆池为自创地形,
+         无敌模式下掉岩浆不死, 无敌结束自动下沉判死) */
+      if (p.starTimer > 0) {
+        var lhit = this.lavaSurfaceHit(p.x, p.y + p.h - 4, p.w, 8)
+        if (lhit) {
+          p.y = lhit.y - p.h
+          p.vy = 0
+          p.onGround = true
+          p.onLavaSurface = true
+          break
+        }
+      }
     }
   }
   /* 顶部空气墙: 不能跳出地图顶端 */
@@ -1529,6 +1541,16 @@ Game.prototype.checkLavaHit = function () {
       return
     }
   }
+}
+
+Game.prototype.lavaSurfaceHit = function (x, y, w, h) {
+  /* 无敌星用的岩浆表面探针: 探针(脚底 8px)跨过岩浆顶线且 x 相交 → 返回该池 (岩浆本身不参与碰撞) */
+  var lava = this.lavaList
+  for (var i = 0; i < lava.length; i++) {
+    var t = lava[i]
+    if (y <= t.y && y + h > t.y && x < t.x + t.w && x + w > t.x) return t
+  }
+  return null
 }
 
 /* 岩浆喷火球: 向上方 45 度角发射 */
@@ -2495,6 +2517,8 @@ Game.prototype.tick = function (dtMs) {
 
   /* 记录玩家上一帧底部位置 (用于踩踏判定, 防止穿过敌人落地后误判) */
   this.playerBottomPrev = p.y + p.h
+  /* 无敌岩浆表面标志每帧复位, 只有本帧真正站上岩浆表面才置位 (movePlayerY) */
+  p.onLavaSurface = false
 
   /* 计时 */
   this.time -= dt / 1000
@@ -2559,6 +2583,12 @@ Game.prototype.tick = function (dtMs) {
   if (p.starTimer > 0) {
     p.starTimer -= dt
     if (p.starTimer < 0) p.starTimer = 0
+    /* 无敌结束: 若正站在岩浆表面(靠无敌浮起), 立即下沉 → 下一帧 checkLavaHit 判死 */
+    if (p.starTimer === 0 && p.onLavaSurface) {
+      p.onLavaSurface = false
+      p.onGround = false
+      p.vy = 1
+    }
   }
 
   /* 斧头拾取 → 桥从左往右逐段塌陷, 库巴坠入岩浆 (原版: axe cuts the rope, bridge retracts, Bowser falls) */
