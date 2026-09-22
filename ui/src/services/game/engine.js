@@ -53,6 +53,7 @@ var MOVE_SPD = 2.9
 var AIR_MOVE = 2.55
 var MAX_FALL = 12.5
 var ENEMY_SPD = 0.62
+var SHELL_SPD = 2.6
 var STOMP_V = -7.2
 var BONK_V = 3.2
 var DEAD_V = -10.5
@@ -315,6 +316,53 @@ var SPR_KOOPA_R = [
   '.....sssrrrrssuuurrrr...',
   '...ssssssssrrrrrrrsssss.',
   '..sssssss.........ssssss',
+]
+/* 龟壳 (缩壳状态): 原版 NES 壳 sprite 16x14 烘焙 1.5x -> 24x21, 底部贴地 */
+var SPR_KOOPA_SHELL_G = [
+  '.......sstttttts........',
+  '......tttssssssttt......',
+  '......tttssssssttt......',
+  '....tttssttttttsttt.....',
+  '....ttstttttttttsst.....',
+  '....ttstttttttttsst.....',
+  '...tssttttttttttstt.....',
+  '...sttstttttttttsstss...',
+  '...sttstttttttttsstss...',
+  '.ssttttssttttttsttttts..',
+  '.ttttttttssssssttttttt..',
+  '.ttttttttssssssttttttt..',
+  'rrrrtttssttttttstttrrrrr',
+  'rrrrrrstttttttttssrrrrrr',
+  'rrrrrrstttttttttssrrrrrr',
+  '....rrrtttttttttrrr.....',
+  '......rrrttttttrrr......',
+  '......rrrttttttrrr......',
+  '.......rrrrrrrrr........',
+  '.........rrrrrr.........',
+  '.........rrrrrr.........',
+]
+var SPR_KOOPA_SHELL_R = [
+  '.......ssuuuuuus........',
+  '......uuussssssuuu......',
+  '......uuussssssuuu......',
+  '....uuussuuuuuusuuu.....',
+  '....uusuuuuuuuuussu.....',
+  '....uusuuuuuuuuussu.....',
+  '...ussuuuuuuuuuuusuu....',
+  '...suusuuuuuuuuussuss...',
+  '...suusuuuuuuuuussuss...',
+  '.ssuuuussuuuuuusuuuuus..',
+  '.uuuuuuuussssssuuuuuuu..',
+  '.uuuuuuuussssssuuuuuuu..',
+  'rrrruuussuuuuuusuuurrrrr',
+  'rrrrrrsuuuuuuuuussrrrrrr',
+  'rrrrrrsuuuuuuuuussrrrrrr',
+  '....rrruuuuuuuuurrr.....',
+  '......rrruuuuuurrr......',
+  '......rrruuuuuurrr......',
+  '.......rrrrrrrrr........',
+  '.........rrrrrr.........',
+  '.........rrrrrr.........',
 ]
 var SPR_PARA_G = [
   '.....r..............rrr.',
@@ -990,6 +1038,8 @@ Game.prototype.loadLevel = function (levelIdx) {
         squashed: false,
         squashT: 0,
         walk: 0,
+        shell: 0,
+        shellT: 0,
         kind: 'koopa',
       })
     } else if (s.t === 'rt') {
@@ -998,6 +1048,7 @@ Game.prototype.loadLevel = function (levelIdx) {
       this.enemies.push({
         x: s.x * TILE, y: rty, w: TILE, h: TILE * 1.5,
         vx: -ENEMY_SPD * 0.8, alive: true, squashed: false, squashT: 0, walk: 0,
+        shell: 0, shellT: 0,
         kind: 'redkoopa',
       })
     } else if (s.t === 'pg') {
@@ -1587,6 +1638,44 @@ Game.prototype.updateEnemies = function (dt) {
       e.angle += e.speed * (dt / 16.667)
     } else {
       /* 默认: 地面行走 (goomba/koopa/buzzy) */
+      if ((e.kind === 'koopa' || e.kind === 'redkoopa') && e.shell > 0) {
+        /* ===== 龟壳状态 ===== */
+        if (e.shell === 2) {
+          /* 滑动壳: 高速移动, 撞墙反弹, 边缘掉落 */
+          e.x += e.vx * (dt / 16.667)
+          if (!e.vy) e.vy = 0
+          e.vy = Math.min(e.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+          e.y += e.vy * (dt / 16.667)
+          var shLand = this.collideTiles(e.x, e.y + e.h, e.w, 4)
+          if (shLand && e.vy > 0) { e.y = shLand.y - e.h; e.vy = 0 }
+          var shAhead = e.vx > 0 ? e.x + e.w + 2 : e.x - 2
+          var shWall = this.collideTiles(shAhead, e.y + 4, 2, e.h - 8)
+          if (shWall) {
+            e.x -= e.vx * (dt / 16.667)
+            e.vx = -e.vx
+          }
+          /* 滑动壳撞其他敌人: 杀死 */
+          for (var oi = 0; oi < this.enemies.length; oi++) {
+            var oe = this.enemies[oi]
+            if (oe === e || !oe.alive || oe.squashed) continue
+            if (oe.kind === 'firebar' || oe.kind === 'piranha' || oe.kind === 'podoboo') continue
+            if (rectsHit(e.x, e.y, e.w, e.h, oe.x, oe.y, oe.w, oe.h)) {
+              oe.alive = false
+              oe.squashed = true
+              oe.squashT = 0.5
+              this.score += 200
+            }
+          }
+        } else {
+          /* 静止壳: 不移动, 有重力 */
+          e.vx = 0
+          if (!e.vy) e.vy = 0
+          e.vy = Math.min(e.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+          e.y += e.vy * (dt / 16.667)
+          var stLand = this.collideTiles(e.x, e.y + e.h, e.w, 4)
+          if (stLand && e.vy > 0) { e.y = stLand.y - e.h; e.vy = 0 }
+        }
+      } else {
       e.x += e.vx * (dt / 16.667)
       /* 重力: 没地面就往下掉 */
       if (!e.vy) e.vy = 0
@@ -1614,11 +1703,36 @@ Game.prototype.updateEnemies = function (dt) {
         e.vx = -e.vx
       }
       e.walk += dt / 90
+      }
     }
 
     /* ===== 与玩家碰撞 ===== */
     /* 帕拉火球在岩浆里等待时不碰撞 */
     if (e.kind === 'podoboo' && e.t <= e.wait) {
+      keep.push(e)
+      continue
+    }
+    /* 火焰棒: 逐段检测 (直棒上任意一段碰到玩家都受伤) */
+    if (e.kind === 'firebar') {
+      var fcx = e.x + e.w / 2
+      var fcy = e.y + e.h / 2
+      var fireHit = false
+      for (var fgi = 0; fgi < e.len; fgi++) {
+        var fga = e.angle
+        var fgx = fcx + Math.cos(fga) * (fgi + 1) * TILE * 0.5
+        var fgy = fcy + Math.sin(fga) * (fgi + 1) * TILE * 0.5
+        if (rectsHit(p.x, p.y, p.w, p.h, fgx - 6, fgy - 6, 12, 12)) {
+          fireHit = true
+          break
+        }
+      }
+      if (fireHit) {
+        if (p.starTimer > 0) {
+          /* 无敌星: 火焰棒消失 (原版不可消灭, 但无敌星状态下接触无伤) */
+        } else if (this.invuln <= 0) {
+          this.hurtPlayer()
+        }
+      }
       keep.push(e)
       continue
     }
@@ -1633,9 +1747,11 @@ Game.prototype.updateEnemies = function (dt) {
         if (this.invuln <= 0) this.hurtPlayer()
       } else if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
         /* 飞龟: 踩一下变普通龟 */
-        var stompingPT = p.vy > 0 || (this.playerBottomPrev <= e.y)
+        var stompingPT = (p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)
         if (stompingPT) {
-          e.kind = 'koopa'
+          e.kind = e.kind === 'paratroopa_r' ? 'redkoopa' : 'koopa'
+          e.shell = 0
+          e.shellT = 0
           e.baseY = e.baseY || e.y
           e.vx = e.vx || -ENEMY_SPD
           e.x = p.x + (p.w - e.w) / 2
@@ -1647,8 +1763,54 @@ Game.prototype.updateEnemies = function (dt) {
           keep.push(e)
           continue
         }
-      } else if (p.vy > 0 || this.playerBottomPrev <= e.y) {
-        /* 下落踩怪 (即使本帧同时落地把vy清零也能踩) */
+      } else if (e.kind === 'koopa' || e.kind === 'redkoopa') {
+        /* 龟: 踩后缩壳, 壳可踢可滑动 */
+        var stompingK = (p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)
+        if (stompingK) {
+          if (e.shell === 0) {
+            /* 第一次踩: 缩壳静止 */
+            e.shell = 1
+            e.vx = 0
+            e.shellT = 0
+            p.vy = STOMP_V
+            p.onGround = false
+            this.score += 100
+          } else if (e.shell === 2) {
+            /* 踩滑动的壳: 停下 */
+            e.shell = 1
+            e.vx = 0
+            e.shellT = 0
+            p.vy = STOMP_V
+            p.onGround = false
+            this.score += 100
+          } else {
+            /* 踩静止壳: 沿玩家面向方向踢飞 */
+            e.shell = 2
+            e.shellT = 0
+            e.vx = (p.facing >= 0 ? 1 : -1) * SHELL_SPD
+            p.vy = STOMP_V
+            p.onGround = false
+            this.score += 100
+          }
+        } else if (this.invuln <= 0) {
+          if (e.shell === 2) {
+            /* 滑动的壳碰玩家 -> 受伤 */
+            this.hurtPlayer()
+          } else {
+            /* 静止壳/正常龟侧面碰 -> 踢飞壳 */
+            if (e.shell === 1) {
+              e.shell = 2
+              e.shellT = 0
+              e.vx = (p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1) * SHELL_SPD
+            } else {
+              this.hurtPlayer()
+            }
+          }
+          keep.push(e)
+          continue
+        }
+      } else if ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)) {
+        /* 踩怪 (原版: 玩家底部在敌人垂直中点之上即可踩死, 侧面高处冲撞同样有效) */
         e.alive = false
         e.squashed = true
         e.squashT = 0.5
@@ -1683,23 +1845,48 @@ Game.prototype.updateBoss = function (dt) {
     b.vx = -b.vx
   }
   b.walk += dt / 60
-  /* 喷火 */
-  b.fireT -= dt
-  if (b.fireT <= 0) {
-    b.fireT = 2200
+
+  /* 跳跃: 原版库巴会跳, 每 2.5~4 秒跳一次 */
+  b.jumpT = (b.jumpT || 0) - dt
+  if (!b.vy) b.vy = 0
+  if (b.jumpT <= 0 && b.vy === 0) {
+    b.jumpT = 2500 + Math.random() * 1500
+    b.vy = -6.5
+  }
+  b.vy = Math.min(b.vy + GRAVITY * (dt / 16.667), MAX_FALL)
+  b.y += b.vy * (dt / 16.667)
+  var bossLand = this.collideTiles(b.x, b.y + b.h, b.w, 4)
+  if (bossLand && b.vy > 0) {
+    b.y = bossLand.y - b.h
+    b.vy = 0
+  }
+
+  /* 喷火: 原版每次连喷 2~3 个火球 (间隔约 180ms), 火球水平抛物线 */
+  b.fireT = (b.fireT || 0) - dt
+  b.burst = (b.burst || 0)
+  b.burstT = (b.burstT || 0) - dt
+  if (b.fireT <= 0 && b.burst <= 0) {
+    b.burst = 2 + Math.floor(Math.random() * 2)
+    b.burstT = 0
+    b.fireT = 2000 + Math.random() * 800
+  }
+  if (b.burst > 0 && b.burstT <= 0) {
+    b.burst--
+    b.burstT = 180
     var dir = p.x > b.x ? 1 : -1
     this.fireballs.push({
       x: b.x + b.w / 2 - TILE / 2,
       y: b.y + 12,
       w: TILE,
       h: TILE,
-      vx: dir * 2.2,
-      vy: -1.2,
+      vx: dir * 2.4,
+      vy: -1.0,
       alive: true,
       t: 0,
       enemy: true,
     })
   }
+
   /* 与玩家碰撞 */
   if (rectsHit(p.x, p.y, p.w, p.h, b.x, b.y, b.w, b.h)) {
     if (p.starTimer > 0) {
@@ -2108,9 +2295,9 @@ Game.prototype.render = function () {
     var spr
     var sprScale = ENEMY_SPR_SCALE[e.kind]
     if (e.kind === 'koopa') {
-      spr = SPR_KOOPA_G
+      spr = e.shell > 0 ? SPR_KOOPA_SHELL_G : SPR_KOOPA_G
     } else if (e.kind === 'redkoopa') {
-      spr = SPR_KOOPA_R
+      spr = e.shell > 0 ? SPR_KOOPA_SHELL_R : SPR_KOOPA_R
     } else if (e.kind === 'paratroopa_g') {
       spr = SPR_PARA_G
     } else if (e.kind === 'paratroopa_r') {
@@ -2153,11 +2340,11 @@ Game.prototype.render = function () {
     } else if (e.kind === 'lakitu') {
       spr = SPR_LAKITU
     } else if (e.kind === 'firebar') {
-      /* 火焰棒: 旋转火球串 */
+      /* 火焰棒: 原版直棒 (火球沿直线排列, 绕轴旋转, 碰到任意一段都受伤) */
       var cx = e.x - cam + e.w / 2
       var cy = e.y + e.h / 2
       for (var fi = 0; fi < e.len; fi++) {
-        var fa = e.angle + fi * 0.5
+        var fa = e.angle
         var fx = cx + Math.cos(fa) * (fi + 1) * TILE * 0.5
         var fy = cy + Math.sin(fa) * (fi + 1) * TILE * 0.5
         ctx.fillStyle = '#ff3300'
@@ -2169,7 +2356,14 @@ Game.prototype.render = function () {
     } else {
       spr = Math.floor(e.walk) % 2 === 0 ? SPR_GOOMBA : SPR_GOOMBA_WALK
     }
-    if (spr) drawSprite(ctx, spr, sprScale || 2, e.x - cam, e.y, e.vx > 0)
+    if (spr) {
+      /* 壳贴图 24x21 底部对齐到龟碰撞盒底部 */
+      if ((e.kind === 'koopa' || e.kind === 'redkoopa') && e.shell > 0) {
+        drawSprite(ctx, spr, 1, e.x - cam, e.y + e.h - 21, e.vx > 0)
+      } else {
+        drawSprite(ctx, spr, sprScale || 2, e.x - cam, e.y, e.vx > 0)
+      }
+    }
   }
 
   /* 强化道具 */
