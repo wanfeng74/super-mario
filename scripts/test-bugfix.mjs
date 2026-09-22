@@ -39,15 +39,15 @@ function findEnemy(g, kind) {
     e.vy = 0
     e.vx = 0
     e.activated = true
-    /* 玩家从右侧贴过来, 底部高于敌人中点 (0.25h) → 应踩死 */
+    /* 玩家从右侧贴过来, 底部高于敌人中点 (0.25h) 且下落中 (vy>0, 原版: 下落中才可踩) → 应踩死 */
     g.player.x = e.x + e.w - 2      // 重叠 2px
     g.player.y = e.y - e.h * 0.75   // 玩家底部 = e.y + 0.25h < e.y + 0.5h
-    g.player.vy = 0
+    g.player.vy = 3                 // 下落中
     g.player.vx = 0
     g.updateEnemies(16)
-    ok('side-high hit stomps goomba', !e.alive || e.squashed, 'alive=' + e.alive + ' squashed=' + e.squashed)
+    ok('falling high-side hit stomps goomba', !e.alive || e.squashed, 'alive=' + e.alive + ' squashed=' + e.squashed)
   }
-  /* 反例: 玩家底部低于敌人中点 (同高度水平撞) → 玩家受伤 */
+  /* 反例1: 玩家底部低于敌人中点 (同高度水平撞) → 玩家受伤 */
   const g2 = createGame(ctx, {})
   g2.start({ level: 1 })
   const e2 = findEnemy(g2, 'goomba')
@@ -62,6 +62,22 @@ function findEnemy(g, kind) {
     g2.player.vy = 0
     g2.updateEnemies(16)
     ok('side-low hit hurts player (bottom > mid)', e2.alive && g2.state === 'dead', 'state=' + g2.state + ' alive=' + e2.alive)
+  }
+  /* 反例2: 玩家未下落 (vy=0) 但底部在敌人中点之上 (砖块/平台上水平经过) → 不踩不伤 (原版 y 不重叠不碰撞) */
+  const g3 = createGame(ctx, {})
+  g3.start({ level: 1 })
+  const e3 = findEnemy(g3, 'goomba')
+  if (e3) {
+    e3.x = g3.player.x + 40
+    e3.y = 9 * 24
+    e3.vy = 0
+    e3.vx = 0
+    e3.activated = true
+    g3.player.x = e3.x + e3.w - 2
+    g3.player.y = e3.y - e3.h * 0.75   // 底部高于中点
+    g3.player.vy = 0                    // 但未下落 (水平走过)
+    g3.updateEnemies(16)
+    ok('flat high-side pass does NOT stomp (vy=0)', e3.alive && !e3.squashed && g3.state !== 'dead', 'alive=' + e3.alive + ' state=' + g3.state)
   }
 }
 
@@ -128,7 +144,7 @@ function findEnemy(g, kind) {
   const k = findEnemy(g, 'koopa')
   ok('1-1 has koopa', !!k)
   if (k) {
-    /* 踩一下 → 缩壳 (shell=1, 不消失) */
+    /* 踩一下 (下落中 vy>0) → 缩壳 (shell=1, 不消失) */
     k.x = g.player.x + 30
     k.y = 9 * 24
     k.vy = 0
@@ -136,7 +152,7 @@ function findEnemy(g, kind) {
     k.activated = true
     g.player.x = k.x + k.w / 2 - g.player.w / 2
     g.player.y = k.y - g.player.h - 1
-    g.player.vy = 0
+    g.player.vy = 3
     g.updateEnemies(16)
     ok('stomp koopa -> shell=1, still alive', k.alive && k.shell === 1, 'alive=' + k.alive + ' shell=' + k.shell)
 

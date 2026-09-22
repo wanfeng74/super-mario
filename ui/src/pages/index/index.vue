@@ -87,6 +87,12 @@
           <text class="debug-chip-text">{{ debugStar ? '开启' : '关闭' }}</text>
         </div>
       </div>
+      <div class="debug-row">
+        <text class="debug-label">地面贴图</text>
+        <div class="debug-chip" :class="{ 'debug-chip-on': debugGroundTile }" @touchstart="toggleDebugGroundTile">
+          <text class="debug-chip-text">{{ debugGroundTile ? '原版' : '纯色' }}</text>
+        </div>
+      </div>
       <div class="slot" @touchstart="backFromDebug">
         <text class="slot-title">返回</text>
       </div>
@@ -140,6 +146,7 @@ export default {
       debugMode: false,
       debugLevel: 1,
       debugStar: false,
+      debugGroundTile: false,
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
   },
@@ -190,6 +197,7 @@ export default {
       }
       this._ctx = ctx
       this._game = createGame(ctx, {
+        groundTile: this.debugGroundTile,
         onGameOver: (st) => {
           this.gameState = st
           this.screen = 'gameover'
@@ -278,6 +286,12 @@ export default {
         }
         try {
           self._game.start(st)
+        } catch (e) {}
+        /* 同步地面渲染模式 (调试开关可能在游戏创建后切换) */
+        try {
+          if (typeof self._game.setGroundTileMode === 'function') {
+            self._game.setGroundTileMode(self.debugGroundTile)
+          }
         } catch (e) {}
         if (self.debugMode && self.debugStar) {
           try {
@@ -373,6 +387,13 @@ export default {
     toggleDebugStar() {
       if (this.screen !== 'debug') return
       this.debugStar = !this.debugStar
+    },
+    toggleDebugGroundTile() {
+      if (this.screen !== 'debug') return
+      this.debugGroundTile = !this.debugGroundTile
+      if (this._game && typeof this._game.setGroundTileMode === 'function') {
+        this._game.setGroundTileMode(this.debugGroundTile)
+      }
     },
     backFromDebug() {
       if (this.screen !== 'debug') return

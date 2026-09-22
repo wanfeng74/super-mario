@@ -51,7 +51,7 @@ var JUMP_V = -11.8
 var JUMP_HOLD_MAX = 280 /* 长按跳跃最多保持低重力的毫秒数, 超过即下落 */
 var MOVE_SPD = 2.9
 var AIR_MOVE = 2.55
-var MAX_FALL = 12.5
+var MAX_FALL = 6.5 /* 原版 SMB 下落极限约 4px/帧(16px格), 本作 TILE=24 缩放 1.5x -> 6px; 原值 12.5 一帧位移超过敌人中点判定窗口, 导致高速下落隧穿踩不死 */
 var ENEMY_SPD = 0.62
 var SHELL_SPD = 2.6
 var STOMP_V = -7.2
@@ -108,6 +108,8 @@ var SPRITE_MAP = Object.assign(
     Y: C_COIN,
     O: C_ORANGE,
     L: C_LIME,
+    V: '#994e00',
+    X: '#666666',
   },
   TEX_MAP
 )
@@ -536,6 +538,24 @@ var SPR_CHEEP = [
   '...rrrrrrrrrrrruu.sssss.',
   '......rrrrrrrr......s...',
 ]
+var SPR_FIREBAR_HUB = [
+  '.XXXXXXXXXXRRRR.',
+  'XVVVVVVVVVRROORR',
+  'XVXVVVVVVRROWOOR',
+  'XVVVVVVVVROWOORR',
+  'XVVVVVVVVROORRRX',
+  'XVVVVVRRRRRORVVX',
+  'XVVVVRROORRRRVRX',
+  'XVVVRROWOORRRRVR',
+  'XVVVROWOORRVVVVX',
+  'XVVVROORRRVVVVVX',
+  'XVVVRRORVVVRVVVX',
+  'XVVVVRRRVRVVVVVX',
+  'XVVVVVRRRVRVVVVX',
+  'XVXVVVVVVVVVVXVX',
+  'XVVVVVVVVVVVVVVX',
+  '.XXXXXXXXXXXXXX.',
+]
 var SPR_HAMMER = [
   '...tttttt...............',
   '...tttttt...............',
@@ -779,6 +799,63 @@ var GOOMBA_WALK = [
 /* 精灵 run-length 缓存: 每行折叠成 [start,len,char] 段, 一次 fillRect 画一段 */
 var _spriteRuns = new WeakMap()
 
+/* 垂直合并: 把行 RLE 进一步合并为矩形块 (相邻行同色同宽段合成一个 fillRect), 
+   减少降级直绘路径的 fillRect 调用次数 (词典笔无离屏 canvas 时收益明显) */
+var _spriteBlocks = new WeakMap()
+function spriteRectBlocks(sprite) {
+  var blocks = _spriteBlocks.get(sprite)
+  if (blocks) return blocks
+  var h = sprite.length
+  var w = sprite[0].length
+  var active = []
+  blocks = []
+  for (var r = 0; r < h; r++) {
+    var row = sprite[r]
+    var segs = []
+    var prev = null
+    var start = 0
+    for (var c = 0; c < row.length; c++) {
+      var ch = row.charAt(c)
+      if (ch !== prev) {
+        if (prev !== null) segs.push([start, c - start, prev])
+        prev = ch
+        start = c
+      }
+    }
+    if (prev !== null) segs.push([start, row.length - start, prev])
+    for (var s = 0; s < segs.length; s++) {
+      var seg = segs[s]
+      var key = seg[0] + '|' + seg[1] + '|' + seg[2]
+      var found = false
+      for (var a = 0; a < active.length; a++) {
+        if (active[a].key === key) {
+          active[a].h++
+          found = true
+          break
+        }
+      }
+      if (!found) active.push({ key: key, x: seg[0], w: seg[1], ch: seg[2], y: r, h: 1 })
+    }
+    for (var a2 = active.length - 1; a2 >= 0; a2--) {
+      var act = active[a2]
+      var alive2 = false
+      for (var s2 = 0; s2 < segs.length; s2++) {
+        if (segs[s2][0] + '|' + segs[s2][1] + '|' + segs[s2][2] === act.key) { alive2 = true; break }
+      }
+      if (!alive2) {
+        blocks.push([act.x, act.y, act.w, act.h, act.ch])
+        active.splice(a2, 1)
+      }
+    }
+  }
+  for (var a3 = 0; a3 < active.length; a3++) {
+    var act3 = active[a3]
+    blocks.push([act3.x, act3.y, act3.w, act3.h, act3.ch])
+  }
+  _spriteBlocks.set(sprite, blocks)
+  return blocks
+}
+
 function spriteRunRows(sprite) {
   var rows = _spriteRuns.get(sprite)
   if (rows) return rows
@@ -890,20 +967,18 @@ function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
         return
       }
     }
-    var runs = spriteRunRows(sprite)
-    for (var r = 0; r < h; r++) {
-      var rr = runs[r]
-      for (var k = 0; k < rr.length; k++) {
-        var ch = rr[k][2]
-        if (ch === '.' || ch === ' ') continue
-        var color = SPRITE_MAP[ch]
-        if (!color) continue
-        var rep = typeof colorMap === 'function' ? colorMap(color, ch) : colorMap[color]
-        if (rep) color = rep
-        var s0 = flip ? w - rr[k][0] - rr[k][1] : rr[k][0]
-        ctx.fillStyle = color
-        ctx.fillRect(px0 + s0 * scale, py0 + r * scale, rr[k][1] * scale, scale)
-      }
+    var blocks = spriteRectBlocks(sprite)
+    for (var b = 0; b < blocks.length; b++) {
+      var bl = blocks[b]
+      var ch = bl[4]
+      if (ch === '.' || ch === ' ') continue
+      var color = SPRITE_MAP[ch]
+      if (!color) continue
+      var rep = typeof colorMap === 'function' ? colorMap(color, ch) : colorMap[color]
+      if (rep) color = rep
+      var s0 = flip ? w - bl[0] - bl[2] : bl[0]
+      ctx.fillStyle = color
+      ctx.fillRect(px0 + s0 * scale, py0 + bl[1] * scale, bl[2] * scale, bl[3] * scale)
     }
     return
   }
@@ -913,19 +988,17 @@ function drawSprite(ctx, sprite, scale, px, py, flip, colorMap) {
     ctx.drawImage(cached, px0, py0)
     return true
   }
-  /* 降级: 直接 fillRect */
-  var runs = spriteRunRows(sprite)
-  for (var r = 0; r < h; r++) {
-    var rr = runs[r]
-    for (var k = 0; k < rr.length; k++) {
-      var ch = rr[k][2]
-      if (ch === '.' || ch === ' ') continue
-      var color = SPRITE_MAP[ch]
-      if (!color) continue
-      var s0 = flip ? w - rr[k][0] - rr[k][1] : rr[k][0]
-      ctx.fillStyle = color
-      ctx.fillRect(px0 + s0 * scale, py0 + r * scale, rr[k][1] * scale, scale)
-    }
+  /* 降级: 直接 fillRect (垂直合并块) */
+  var blocks = spriteRectBlocks(sprite)
+  for (var b = 0; b < blocks.length; b++) {
+    var bl = blocks[b]
+    var ch = bl[4]
+    if (ch === '.' || ch === ' ') continue
+    var color = SPRITE_MAP[ch]
+    if (!color) continue
+    var s0 = flip ? w - bl[0] - bl[2] : bl[0]
+    ctx.fillStyle = color
+    ctx.fillRect(px0 + s0 * scale, py0 + bl[1] * scale, bl[2] * scale, bl[3] * scale)
   }
 }
 
@@ -939,8 +1012,16 @@ function Game(ctx, hooks) {
   this.ctx = ctx
   this.hooks = hooks || {}
   this.input = { left: false, right: false, jump: false, prevJump: false }
+  /* 地面渲染模式: false=纯色填充(默认,性能最优) / true=原版贴图平铺. 由调试界面运行时切换 */
+  this.groundTile = !!(hooks && hooks.groundTile)
   this.state = 'idle' // idle | playing | dead | clear | gameover
   this.reset()
+}
+
+/* 调试/运行时切换地面渲染模式: 纯色填充 <-> 原版贴图平铺. 切换后强制静态层缓存重建 */
+Game.prototype.setGroundTileMode = function (on) {
+  this.groundTile = !!on
+  this._tileCacheX = NaN
 }
 
 Game.prototype.reset = function () {
@@ -969,6 +1050,7 @@ Game.prototype.reset = function () {
   this.speedBonus = 0
   this.invuln = 0
   this.playerBottomPrev = 0
+  this._bumpTiles = []
 }
 
 /* 从关卡数据构建世界 */
@@ -984,6 +1066,7 @@ Game.prototype.loadLevel = function (levelIdx) {
   this.flagX = 0
   this.castleX = 0
   this.lavaFireT = 0
+  this._bumpTiles = []
 
   for (var i = 0; i < segs.length; i++) {
     var s = segs[i]
@@ -996,8 +1079,8 @@ Game.prototype.loadLevel = function (levelIdx) {
       var lh = s.h || 1
       var ly = (WORLD_GROUND_Y + 1 - lh) * TILE
       this.tiles.push({ type: 'lava', x: s.x * TILE, y: ly, w: s.w * TILE, h: lh * TILE })
-      /* 记录岩浆位置用于喷火球 */
-      this.lavaList.push({ x: s.x * TILE + s.w * TILE / 2, y: ly, w: s.w * TILE })
+      /* 记录岩浆位置用于喷火球/岩浆死亡判定 (含完整 rect, 供 checkLavaHit 复用避免全量扫 tiles) */
+      this.lavaList.push({ x: s.x * TILE, y: ly, w: s.w * TILE, h: lh * TILE })
     } else if (s.t === 'b') {
       this.tiles.push({ type: 'brick', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'q') {
@@ -1006,7 +1089,8 @@ Game.prototype.loadLevel = function (levelIdx) {
       this.tiles.push({ type: 'hard', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'p') {
       var ph = (s.h || 2) * TILE
-      var py = (WORLD_GROUND_Y + 1) * TILE - ph + TILE
+      /* 管道底坐在地面顶(240)上, 向上凸出 h 格. 旧公式多加了 2 格导致 h=2 管道与地面平齐不凸出 */
+      var py = WORLD_GROUND_Y * TILE - ph
       this.pipes.push({ x: s.x * TILE, y: py, w: 2 * TILE, h: ph })
       this.tiles.push({ type: 'pipe', x: s.x * TILE, y: py, w: 2 * TILE, h: ph })
     } else if (s.t === 'c') {
@@ -1066,10 +1150,11 @@ Game.prototype.loadLevel = function (levelIdx) {
         kind: 'paratroopa_r', baseY: (s.y || 5) * TILE, flyT: Math.random() * 6,
       })
     } else if (s.t === 'bz') {
-      /* 硬壳虫 (黑甲虫, 怕踩不怕火) */
+      /* 硬壳虫 (黑甲虫, 怕踩不怕火): 同龟壳机制, 踩后缩壳可踢, 火球免疫 */
       this.enemies.push({
         x: s.x * TILE, y: (WORLD_GROUND_Y - 1) * TILE, w: TILE, h: TILE,
         vx: -ENEMY_SPD, alive: true, squashed: false, squashT: 0, walk: 0,
+        shell: 0, shellT: 0,
         kind: 'buzzy',
       })
     } else if (s.t === 'bl') {
@@ -1133,7 +1218,7 @@ Game.prototype.loadLevel = function (levelIdx) {
       /* 食人花 (从管道顶部弹出) */
       var pipeH = s.h || 2
       var pipePh = pipeH * TILE
-      var pipeTopY = (WORLD_GROUND_Y + 1) * TILE - pipePh + TILE
+      var pipeTopY = WORLD_GROUND_Y * TILE - pipePh
       /* 管道宽 2 格, 中心在 x+1, 食人花居中 */
       var piranhaW = TILE * 0.8
       this.enemies.push({
@@ -1198,6 +1283,32 @@ Game.prototype.loadLevel = function (levelIdx) {
   this.resumeStar = 0
   this.state = 'playing'
   this.stateTimer = 0
+  /* 瓦片列索引: 按瓦片覆盖的 x 列分组, collideTiles 只查相关列, 避免每帧全量扫描 */
+  this._tileCols = []
+  for (var ti = 0; ti < this.tiles.length; ti++) {
+    var tcol = this.tiles[ti]
+    var c0 = Math.floor(tcol.x / TILE)
+    var c1 = Math.floor((tcol.x + tcol.w - 1) / TILE)
+    for (var cc = c0; cc <= c1; cc++) {
+      if (!this._tileCols[cc]) this._tileCols[cc] = []
+      this._tileCols[cc].push(tcol)
+    }
+  }
+  /* 开局悬空怪修正: 地面怪生成在坑/空隙上方时会直接掉落, 吸附到最近的实心地面 (原版怪都站在坑边) */
+  for (var si = 0; si < this.enemies.length; si++) {
+    var se = this.enemies[si]
+    if (se.kind !== 'goomba' && se.kind !== 'koopa' && se.kind !== 'redkoopa' && se.kind !== 'buzzy') continue
+    if (this.collideTiles(se.x + se.w / 2 - 2, se.y + se.h, 4, 4)) continue
+    var moved = false
+    for (var sd = 1; sd <= 10 && !moved; sd++) {
+      var sx2 = se.x - sd * TILE
+      if (this.collideTiles(sx2 + se.w / 2 - 2, se.y + se.h, 4, 4)) { se.x = sx2; moved = true }
+    }
+    for (var sd2 = 1; sd2 <= 10 && !moved; sd2++) {
+      var sx3 = se.x + sd2 * TILE
+      if (this.collideTiles(sx3 + se.w / 2 - 2, se.y + se.h, 4, 4)) { se.x = sx3; moved = true }
+    }
+  }
 }
 
 /* 变身: small -> super -> fire, 切换碰撞框与精灵 */
@@ -1344,12 +1455,12 @@ Game.prototype.checkLavaHit = function () {
   if (this.state !== 'playing') return
   var p = this.player
   if (p.starTimer > 0) return
-  /* 检测玩家脚底是否在岩浆里 */
+  /* 检测玩家脚底是否在岩浆里: 只遍历岩浆池列表 (远少于全量 tiles), 避免每帧全扫 */
   var footX = p.x + p.w / 2
   var footY = p.y + p.h
-  for (var i = 0; i < this.tiles.length; i++) {
-    var t = this.tiles[i]
-    if (t.type !== 'lava') continue
+  var lava = this.lavaList
+  for (var i = 0; i < lava.length; i++) {
+    var t = lava[i]
     if (footX >= t.x && footX <= t.x + t.w &&
         footY >= t.y && footY <= t.y + t.h) {
       this.killPlayer(false)
@@ -1359,34 +1470,32 @@ Game.prototype.checkLavaHit = function () {
 }
 
 /* 岩浆喷火球: 向上方 45 度角发射 */
-Game.prototype.shootLavaFireball = function () {
-  if (!this.lavaList || this.lavaList.length === 0) return
+Game.prototype.shootLavaFireball = function (lava) {
+  if (!lava) return
   var p = this.player
-  for (var i = 0; i < this.lavaList.length; i++) {
-    var lava = this.lavaList[i]
-    /* 只喷玩家附近的岩浆 */
-    if (Math.abs(lava.x - p.x) > 400) continue
-    /* 上方 45 度扇形 (从正上方往左右各偏 22.5 度) */
-    var speed = 4
-    var angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 4)
-    var vx = Math.cos(angle) * speed
-    var vy = Math.sin(angle) * speed
-    /* 生成火球敌人 */
-    this.enemies.push({
-      x: lava.x - TILE / 2,
-      y: lava.y - TILE,
-      w: TILE,
-      h: TILE,
-      vx: vx,
-      vy: vy,
-      alive: true,
-      squashed: false,
-      squashT: 0,
-      walk: 0,
-      kind: 'lavaFireball',
-      life: 180,
-    })
-  }
+  /* 只喷屏幕内可见的岩浆池 (原版: 离开视野的池不喷) */
+  if (lava.x + lava.w < this.camX - TILE || lava.x > this.camX + VIEW_W + TILE) return
+  /* 原版岩浆喷发: 向上抛物线, 力度足 (初速 ~6), 方向近垂直略带随机 */
+  var speed = 5.5 + Math.random() * 1.5
+  var angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 3)
+  var vx = Math.cos(angle) * speed
+  var vy = Math.sin(angle) * speed
+  /* 生成火球敌人 (生成即激活, 立即飞行) */
+  this.enemies.push({
+    x: lava.x + lava.w / 2 - TILE / 2,
+    y: lava.y - TILE,
+    w: TILE,
+    h: TILE,
+    vx: vx,
+    vy: vy,
+    alive: true,
+    squashed: false,
+    squashT: 0,
+    walk: 0,
+    activated: true,
+    kind: 'lavaFireball',
+    life: 240,
+  })
 }
 
 /* 顶砖块: 问号出金币/道具, 砖块 super 顶碎/small 顶弹 */
@@ -1410,6 +1519,8 @@ Game.prototype.spawnPowerup = function (kind, tx, ty) {
 Game.prototype.bonkTile = function (tile) {
   if (tile.type === 'qblock' && !tile.used) {
     tile.used = true
+    /* 问号块被顶开是永久状态变化, 强制静态层缓存失效(否则缓存只在跨瓦片时重建, 顶开后块会消失) */
+    this._tileCacheX = NaN
     var content = tile.content || 'coin'
     if (content === 'mushroom') {
       this.spawnPowerup('mushroom', tile.x, tile.y)
@@ -1429,6 +1540,8 @@ Game.prototype.bonkTile = function (tile) {
     var pw = this.player ? this.player.power : 'small'
     if (!tile.dead && (pw === 'super' || pw === 'fire')) {
       tile.dead = true
+      /* 砖块被顶碎是永久状态变化, 强制静态层缓存失效(否则碎砖残留画面) */
+      this._tileCacheX = NaN
       this.score += 50
       for (var i = 0; i < 4; i++) {
         this.particles.push({
@@ -1441,14 +1554,32 @@ Game.prototype.bonkTile = function (tile) {
         })
       }
     } else if (!tile.dead) {
-      /* small 顶砖只弹 */
+      /* small 顶砖只弹: 加入活动抖动列表, 避免 tick 每帧全量扫 tiles 递减 */
       tile.bumpT = 0.2
+      if (!this._bumpTiles) this._bumpTiles = []
+      if (this._bumpTiles.indexOf(tile) < 0) this._bumpTiles.push(tile)
     }
   }
 }
 
 /* 与 tiles 的 AABB 碰撞 (跳过已死砖块), 返回第一个碰撞体 */
 Game.prototype.collideTiles = function (x, y, w, h) {
+  /* 列索引快路径: 只查查询框覆盖的列, 避免全量扫描 (词典笔软件渲染/慢 JS 下收益明显) */
+  var cols = this._tileCols
+  if (cols) {
+    var c0 = Math.floor(x / TILE)
+    var c1 = Math.floor((x + w) / TILE)
+    for (var cc = c0; cc <= c1; cc++) {
+      var bucket = cols[cc]
+      if (!bucket) continue
+      for (var bi = 0; bi < bucket.length; bi++) {
+        var bt = bucket[bi]
+        if (bt.dead) continue
+        if (rectsHit(x, y, w, h, bt.x, bt.y, bt.w, bt.h)) return bt
+      }
+    }
+    return null
+  }
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead) continue
@@ -1459,6 +1590,21 @@ Game.prototype.collideTiles = function (x, y, w, h) {
 
 Game.prototype.collideTileList = function (x, y, w, h) {
   var out = []
+  var cols = this._tileCols
+  if (cols) {
+    var c0 = Math.floor(x / TILE)
+    var c1 = Math.floor((x + w) / TILE)
+    for (var cc = c0; cc <= c1; cc++) {
+      var bucket = cols[cc]
+      if (!bucket) continue
+      for (var bi = 0; bi < bucket.length; bi++) {
+        var bt = bucket[bi]
+        if (bt.dead) continue
+        if (rectsHit(x, y, w, h, bt.x, bt.y, bt.w, bt.h)) out.push(bt)
+      }
+    }
+    return out
+  }
   for (var i = 0; i < this.tiles.length; i++) {
     var t = this.tiles[i]
     if (t.dead) continue
@@ -1479,7 +1625,6 @@ Game.prototype.updateEnemies = function (dt) {
       if (e.squashT > 0) keep.push(e)
       continue
     }
-
     /* 怪物激活: 玩家进入屏幕范围后才开始移动 */
     if (!e.activated) {
       /* 地面怪物激活距离稍远, 刷在砖块/空中的怪物激活距离更短 */
@@ -1637,9 +1782,9 @@ Game.prototype.updateEnemies = function (dt) {
       /* 火焰棒: 旋转 */
       e.angle += e.speed * (dt / 16.667)
     } else {
-      /* 默认: 地面行走 (goomba/koopa/buzzy) */
-      if ((e.kind === 'koopa' || e.kind === 'redkoopa') && e.shell > 0) {
-        /* ===== 龟壳状态 ===== */
+      /* 默认: 地面行走 (goomba/koopa/redkoopa/buzzy) */
+      if ((e.kind === 'koopa' || e.kind === 'redkoopa' || e.kind === 'buzzy') && e.shell > 0) {
+        /* ===== 龟壳状态 (原版: 踩龟缩壳静止 -> 踢出滑行; 静止 13 游戏秒后龟重新钻出) ===== */
         if (e.shell === 2) {
           /* 滑动壳: 高速移动, 撞墙反弹, 边缘掉落 */
           e.x += e.vx * (dt / 16.667)
@@ -1666,14 +1811,21 @@ Game.prototype.updateEnemies = function (dt) {
               this.score += 200
             }
           }
-        } else {
-          /* 静止壳: 不移动, 有重力 */
+        } else if (e.shell === 1) {
+          /* 静止壳: 不移动, 有重力; 13 游戏秒后龟重新钻出来继续走 (原版行为) */
           e.vx = 0
           if (!e.vy) e.vy = 0
           e.vy = Math.min(e.vy + GRAVITY * (dt / 16.667), MAX_FALL)
           e.y += e.vy * (dt / 16.667)
           var stLand = this.collideTiles(e.x, e.y + e.h, e.w, 4)
           if (stLand && e.vy > 0) { e.y = stLand.y - e.h; e.vy = 0 }
+          e.shellT = (e.shellT || 0) + dt
+          if (e.shellT >= 13000) {
+            /* 龟从壳里钻出, 恢复行走 */
+            e.shell = 0
+            e.shellT = 0
+            e.vx = (e.prevVx > 0 ? 1 : -1) * ENEMY_SPD
+          }
         }
       } else {
       e.x += e.vx * (dt / 16.667)
@@ -1693,12 +1845,13 @@ Game.prototype.updateEnemies = function (dt) {
       var floor = this.collideTiles(aheadX, belowY, 4, 6)
       /* 判断是否地面怪物 (初始 y 在地面高度) */
       var isGroundEnemy = (e.startY == null) || (e.startY >= (WORLD_GROUND_Y - 1.5) * TILE)
-      /* 只有撞墙才掉头; 地面怪物走到边缘也掉头, 砖块上的怪物走到边缘掉下去 */
+      /* 只有撞墙才掉头; 地面怪物走到边缘也掉头, 砖块上的怪物走到边缘掉下去
+         (原版: 绿龟 koopa 会走离平台边缘掉下悬崖, 红龟 redkoopa 守平台不掉头) */
       if (wall) {
         e.x -= e.vx * (dt / 16.667)
         e.vx = -e.vx
-      } else if (!floor && isGroundEnemy && e.vy === 0) {
-        /* 地面怪物走到平台边缘会掉头 */
+      } else if (!floor && isGroundEnemy && e.vy === 0 && e.kind !== 'koopa') {
+        /* 地面怪物走到平台边缘会掉头 (绿龟除外: 原版走离边缘) */
         e.x -= e.vx * (dt / 16.667)
         e.vx = -e.vx
       }
@@ -1746,71 +1899,83 @@ Game.prototype.updateEnemies = function (dt) {
         /* 不能踩的敌人 */
         if (this.invuln <= 0) this.hurtPlayer()
       } else if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
-        /* 飞龟: 踩一下变普通龟 */
-        var stompingPT = (p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)
+        /* 飞龟: 下落中踩一下变普通龟 (原版: stomp -> turns into a normal Koopa) */
+        var stompingPT = p.vy > 0 && ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))
         if (stompingPT) {
           e.kind = e.kind === 'paratroopa_r' ? 'redkoopa' : 'koopa'
           e.shell = 0
           e.shellT = 0
-          e.baseY = e.baseY || e.y
+          e.h = TILE * 1.5
+          e.baseY = undefined
+          e.flyT = 0
           e.vx = e.vx || -ENEMY_SPD
           e.x = p.x + (p.w - e.w) / 2
           p.vy = STOMP_V
           p.onGround = false
           this.score += 200
+        } else if (p.y + p.h <= e.y + e.h * 0.5) {
+          /* 玩家在飞龟上方但未下落: 不交互 */
         } else if (this.invuln <= 0) {
           this.hurtPlayer()
           keep.push(e)
           continue
         }
-      } else if (e.kind === 'koopa' || e.kind === 'redkoopa') {
-        /* 龟: 踩后缩壳, 壳可踢可滑动 */
-        var stompingK = (p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)
+      } else if (e.kind === 'koopa' || e.kind === 'redkoopa' || e.kind === 'buzzy') {
+        /* 龟/硬壳虫 严格原版状态机:
+           shell=0 行走; 踩一下 -> shell=1 缩壳静止(13秒后钻出), 玩家弹起;
+           弹起落回再踩到静止壳 -> 踢出 shell=2 滑行 (原版连招: 落回即踢, 无防误触锁);
+           踩滑行壳 -> 停回 shell=1; 侧面碰静止壳 -> 踢出; 滑行壳碰玩家 -> 受伤 */
+        var aboveK = p.y + p.h <= e.y + e.h * 0.5
+        var stompingK = p.vy > 0 && (aboveK || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))
         if (stompingK) {
-          if (e.shell === 0) {
-            /* 第一次踩: 缩壳静止 */
+          if (e.shell === 2) {
+            /* 踩滑动的壳: 停下 (原版: A shell in motion can be stopped by stomping on it) */
             e.shell = 1
             e.vx = 0
             e.shellT = 0
             p.vy = STOMP_V
             p.onGround = false
             this.score += 100
-          } else if (e.shell === 2) {
-            /* 踩滑动的壳: 停下 */
-            e.shell = 1
-            e.vx = 0
-            e.shellT = 0
-            p.vy = STOMP_V
-            p.onGround = false
-            this.score += 100
-          } else {
-            /* 踩静止壳: 沿玩家面向方向踢飞 */
+          } else if (e.shell === 1) {
+            /* 踩静止壳: 沿玩家面向方向踢出 (原版: 落回再踩/再踩静止壳即踢飞, kick and send him flying) */
             e.shell = 2
             e.shellT = 0
             e.vx = (p.facing >= 0 ? 1 : -1) * SHELL_SPD
             p.vy = STOMP_V
             p.onGround = false
             this.score += 100
-          }
-        } else if (this.invuln <= 0) {
-          if (e.shell === 2) {
-            /* 滑动的壳碰玩家 -> 受伤 */
-            this.hurtPlayer()
           } else {
-            /* 静止壳/正常龟侧面碰 -> 踢飞壳 */
-            if (e.shell === 1) {
-              e.shell = 2
-              e.shellT = 0
-              e.vx = (p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1) * SHELL_SPD
-            } else {
-              this.hurtPlayer()
-            }
+            /* 踩行走龟: 缩壳静止 (原版: stays motionless for a while) */
+            e.shell = 1
+            e.prevVx = e.vx
+            e.vx = 0
+            e.shellT = 0
+            p.vy = STOMP_V
+            p.onGround = false
+            this.score += 100
+          }
+        } else if (e.shell === 2) {
+          /* 滑动的壳碰玩家 -> 受伤 (原版: 滑行壳撞到即受伤) */
+          if (this.invuln <= 0) this.hurtPlayer()
+          keep.push(e)
+          continue
+        } else if (aboveK) {
+          /* 玩家在壳/龟上方但未下落 (上升经过/砖块上水平走过): 不踩不伤 (原版 y 不重叠不碰撞) */
+        } else if (this.invuln <= 0) {
+          /* 侧面碰: 静止壳 -> 踢飞壳 (原版: 主动踢壳); 行走龟 -> 受伤 */
+          if (e.shell === 1) {
+            e.shell = 2
+            e.shellT = 0
+            e.vx = (p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1) * SHELL_SPD
+          } else {
+            this.hurtPlayer()
           }
           keep.push(e)
           continue
         }
-      } else if ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.vy > 0)) {
-        /* 踩怪 (原版: 玩家底部在敌人垂直中点之上即可踩死, 侧面高处冲撞同样有效) */
+      } else if (p.vy > 0 && ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))) {
+        /* 踩怪 (原版 SMB: 下落中 vy>0 且玩家脚在敌人垂直中点之上; 高速下落隧穿时上一帧底部在中点之上也算踩.
+           必须下落中才可踩: 水平走过/上升中碰到不击杀, 避免"水平走过了才触发") */
         e.alive = false
         e.squashed = true
         e.squashT = 0.5
@@ -1819,6 +1984,8 @@ Game.prototype.updateEnemies = function (dt) {
         p.vy = STOMP_V
         p.onGround = false
         this.score += 100
+      } else if (p.y + p.h <= e.y + e.h * 0.5) {
+        /* 玩家在敌人上方但未下落 (站砖块/平台上水平经过): 不踩不伤 (原版 y 不重叠不碰撞) */
       } else if (this.invuln <= 0) {
         this.hurtPlayer()
         keep.push(e)
@@ -1835,12 +2002,13 @@ Game.prototype.updateBoss = function (dt) {
   var b = this.boss
   var p = this.player
   if (!b || !b.alive) return
-  /* 巡逻: 撞墙/无地面掉头 */
+  /* 巡逻: 撞墙/无地面掉头; 且不越过终点 (斧头/旗杆) */
+  var patrolMax = this.axe ? this.axe.x - TILE : (this.flagX > 0 ? this.flagX - TILE : Infinity)
   b.x += b.vx * (dt / 16.667)
   var aheadX = b.vx > 0 ? b.x + b.w + 2 : b.x - 2
   var wall = this.collideTiles(aheadX, b.y + 4, 2, b.h - 8)
   var floor = this.collideTiles(aheadX, b.y + b.h + 2, 4, 6)
-  if (wall || !floor) {
+  if (wall || !floor || (b.vx > 0 && b.x + b.w > patrolMax)) {
     b.x -= b.vx * (dt / 16.667)
     b.vx = -b.vx
   }
@@ -1873,14 +2041,20 @@ Game.prototype.updateBoss = function (dt) {
   if (b.burst > 0 && b.burstT <= 0) {
     b.burst--
     b.burstT = 180
-    var dir = p.x > b.x ? 1 : -1
+    /* 火球射向玩家当前位置 (原版库巴火球朝马里奥方向抛物线) */
+    var bm = { x: b.x + b.w / 2, y: b.y + 12 }
+    var pm = { x: p.x + p.w / 2, y: p.y + p.h / 2 }
+    var bdx = pm.x - bm.x
+    var bdy = pm.y - bm.y
+    var bd = Math.sqrt(bdx * bdx + bdy * bdy) || 1
+    var bspd = 3.0
     this.fireballs.push({
       x: b.x + b.w / 2 - TILE / 2,
       y: b.y + 12,
       w: TILE,
       h: TILE,
-      vx: dir * 2.4,
-      vy: -1.0,
+      vx: (bdx / bd) * bspd,
+      vy: (bdy / bd) * bspd - 0.8,
       alive: true,
       t: 0,
       enemy: true,
@@ -2140,6 +2314,20 @@ Game.prototype.updateStateMachine = function (dt) {
         this.loadLevel(this.level)
       }
     }
+  } else if (this.state === 'flag') {
+    /* 原版通关: 小旗从杆顶滑到杆底 (~0.7s), 玩家定在旗杆旁落地 */
+    this.stateTimer += dt
+    var fp = this.player
+    fp.x = this.flagX - fp.w
+    fp.vy = Math.min((fp.vy || 0) + GRAVITY * (dt / 16.667), MAX_FALL)
+    fp.y += fp.vy * (dt / 16.667)
+    var fLand = this.collideTiles(fp.x, fp.y + fp.h, fp.w, 4)
+    if (fLand && fp.vy > 0) { fp.y = fLand.y - fp.h; fp.vy = 0 }
+    if (this.stateTimer > 700) {
+      this.state = 'clear'
+      this.stateTimer = 0
+      this.score += 1000
+    }
   } else if (this.state === 'clear') {
     this.stateTimer += dt
     var pl = this.player
@@ -2157,13 +2345,16 @@ Game.prototype.updateStateMachine = function (dt) {
 
 Game.prototype.tick = function (dtMs) {
   this.animT += dtMs
-  /* 岩浆喷火球: 每隔 3 秒朝周围 120 度扇形发射一个火球 */
+  /* 岩浆喷火球: 每池独立周期 (初始随机相位), 只喷屏幕内可见池 */
   if (this.lavaList && this.lavaList.length > 0) {
-    if (!this.lavaFireT) this.lavaFireT = 0
-    this.lavaFireT += dtMs
-    if (this.lavaFireT >= 3000) {
-      this.lavaFireT = 0
-      this.shootLavaFireball()
+    for (var li = 0; li < this.lavaList.length; li++) {
+      var lv = this.lavaList[li]
+      if (lv.fireT == null) lv.fireT = Math.random() * 2000
+      lv.fireT += dtMs
+      if (lv.fireT >= 2500) {
+        lv.fireT = 0
+        this.shootLavaFireball(lv)
+      }
     }
   }
   if (this.state !== 'playing') {
@@ -2221,9 +2412,14 @@ Game.prototype.tick = function (dtMs) {
 
   if (p.onGround && p.vx !== 0) p.walk += dt / 110
   if (this.invuln > 0) this.invuln -= dt
-  /* 砖块抖动递减 */
-  for (var bi = 0; bi < this.tiles.length; bi++) {
-    if (this.tiles[bi].bumpT > 0) this.tiles[bi].bumpT -= dt / 1000
+  /* 砖块抖动递减: 只遍历活动抖动砖列表 (未顶时为空, 避免每帧全量扫 tiles) */
+  var btiles = this._bumpTiles
+  if (btiles && btiles.length > 0) {
+    for (var bidx = btiles.length - 1; bidx >= 0; bidx--) {
+      var btile = btiles[bidx]
+      btile.bumpT -= dt / 1000
+      if (btile.bumpT <= 0) { btile.bumpT = 0; btiles.splice(bidx, 1) }
+    }
   }
 
   /* 敌人/道具 */
@@ -2256,9 +2452,9 @@ Game.prototype.tick = function (dtMs) {
   if (p.x < this.camX + 160) this.camX = Math.max(0, p.x - 160)
   this.camX = Math.max(0, Math.min(this.camX, this.worldW - VIEW_W))
 
-  /* 过关: 碰到旗杆才通关 (flagX>0 表示有关卡有旗杆) */
+  /* 过关: 碰到旗杆才通关 (flagX>0 表示有关卡有旗杆) — 原版: 小旗从杆顶滑下 */
   if (this.flagX > 0 && p.x + p.w > this.flagX) {
-    this.state = 'clear'
+    this.state = 'flag'
     this.stateTimer = 0
     this.score += 500
   }
@@ -2321,6 +2517,7 @@ Game.prototype.render = function () {
       /* 食人花单独在管道后面渲染 */
       continue
     } else if (e.kind === 'buzzy') {
+      /* 硬壳虫: 缩壳后显示黑壳(原版深色壳), 行为同龟壳 */
       spr = SPR_BUZZY
     } else if (e.kind === 'blooper') {
       spr = SPR_BLOOPER
@@ -2343,6 +2540,8 @@ Game.prototype.render = function () {
       /* 火焰棒: 原版直棒 (火球沿直线排列, 绕轴旋转, 碰到任意一段都受伤) */
       var cx = e.x - cam + e.w / 2
       var cy = e.y + e.h / 2
+      /* 原版中心大火球 (16x16 -> 1.5x = 24x24, 与瓦片同尺寸居中) */
+      drawSprite(ctx, SPR_FIREBAR_HUB, 1.5, e.x - cam, e.y, false)
       for (var fi = 0; fi < e.len; fi++) {
         var fa = e.angle
         var fx = cx + Math.cos(fa) * (fi + 1) * TILE * 0.5
@@ -2505,6 +2704,15 @@ Game.prototype.renderTiles = function (ctx, cam) {
     themeCM = { '#c75100': '#909090', '#e44c00': '#b0b0b0', '#7c0e00': '#505050', '#000000': '#000000' }
   }
 
+  /* ===== 食人花: 在管道之前渲染, 管道盖住食人花下半身 (原版逻辑) ===== */
+  for (var pz = 0; pz < this.enemies.length; pz++) {
+    var ez = this.enemies[pz]
+    if (ez.kind !== 'piranha' || !ez.alive) continue
+    if (ez.x + ez.w < cam || ez.x > cam + VIEW_W) continue
+    var pzx = ez.x - cam + ez.w / 2
+    drawSprite(ctx, SPR_PIRANHA, 1, pzx - 12, ez.y, false)
+  }
+
   /* ===== 静态层缓存: 地面/砖块/硬块/已用问号块/管道/旗杆/城堡 只在相机跨瓦片时重绘 ===== */
   var tileX = Math.floor(cam / TILE) * TILE
   var c = this._tileCache
@@ -2556,13 +2764,24 @@ Game.prototype.renderTiles = function (ctx, cam) {
     }
   }
 
-  /* 食人花 (在管道下面渲染, 弹出时花头露出) */
-  for (var pi2 = 0; pi2 < this.enemies.length; pi2++) {
-    var e = this.enemies[pi2]
-    if (e.kind !== 'piranha' || !e.alive) continue
-    if (e.x + e.w < cam || e.x > cam + VIEW_W) continue
-    var pcx = e.x - cam + e.w / 2
-    drawSprite(ctx, SPR_PIRANHA, 1, pcx - 12, e.y, false)
+  /* 小旗 (动态层): 平时在杆顶, 通关时从杆顶滑到杆底 (原版动画) */
+  if (this.flagX > cam - 200 && this.flagX < cam + VIEW_W + 200) {
+    var fdx = this.flagX - cam
+    var fdbase = WORLD_GROUND_Y * TILE
+    var fTop = fdbase - 138
+    var fBot = fdbase - 6
+    var fdy = fTop
+    if (this.state === 'flag') {
+      var ft = Math.min(1, this.stateTimer / 700)
+      fdy = fTop + (fBot - fTop) * ft
+    }
+    ctx.fillStyle = '#2fae5c'
+    ctx.beginPath()
+    ctx.moveTo(fdx + 2, fdy)
+    ctx.lineTo(fdx + 34, fdy + 10)
+    ctx.lineTo(fdx + 2, fdy + 20)
+    ctx.closePath()
+    ctx.fill()
   }
 }
 
@@ -2573,18 +2792,26 @@ Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
     if (t.dead || t.x + t.w < scx || t.x > scx + VIEW_W + TILE * 2) continue
     var sx = t.x - scx
     if (t.type === 'ground') {
-      /* 性能版地面: 纯色填充 (词典笔软件渲染扛不住贴图平铺), 主体色 + 顶部浅色边保留原版视觉 */
-      var gMain = '#9c4a00', gLight = '#ffcec5'
-      if (this.theme === 'underground') {
-        gMain = '#2890d0'; gLight = '#40b0e8'
-      } else if (this.theme === 'castle') {
-        gMain = '#909090'; gLight = '#b0b0b0'
+      /* 地面渲染: 默认纯色填充(性能最优, 词典笔软件渲染扛不住贴图平铺); 调试开关可切回原版贴图平铺 */
+      if (this.groundTile) {
+        for (var ggy = 0; ggy < t.h; ggy += TILE) {
+          for (var ggx = 0; ggx < t.w; ggx += TILE) {
+            drawSprite(ctx, GROUND, undefined, sx + ggx, t.y + ggy, false, themeCM)
+          }
+        }
+      } else {
+        var gMain = '#9c4a00', gLight = '#ffcec5'
+        if (this.theme === 'underground') {
+          gMain = '#2890d0'; gLight = '#40b0e8'
+        } else if (this.theme === 'castle') {
+          gMain = '#909090'; gLight = '#b0b0b0'
+        }
+        /* 整块一次 fillRect (负坐标由驱动裁剪), 每帧 2 次调用替代 92 次贴图 blit */
+        ctx.fillStyle = gLight
+        ctx.fillRect(sx, t.y, t.w, Math.min(4, t.h))
+        ctx.fillStyle = gMain
+        ctx.fillRect(sx, t.y + Math.min(4, t.h), t.w, t.h - Math.min(4, t.h))
       }
-      /* 整块一次 fillRect (负坐标由驱动裁剪), 每帧 2 次调用替代 92 次贴图 blit */
-      ctx.fillStyle = gLight
-      ctx.fillRect(sx, t.y, t.w, Math.min(4, t.h))
-      ctx.fillStyle = gMain
-      ctx.fillRect(sx, t.y + Math.min(4, t.h), t.w, t.h - Math.min(4, t.h))
     } else if (t.type === 'brick') {
       if (t.bumpT > 0) continue /* 抖动砖走动态层 */
       drawSprite(ctx, BRICK, undefined, sx, t.y, false, themeCM)
@@ -2611,7 +2838,7 @@ Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
     }
   }
 
-  /* 旗杆 */
+  /* 旗杆 (小旗在动态层渲染: 原版通关时从杆顶滑下) */
   if (this.flagX > scx - 200 && this.flagX < scx + VIEW_W + TILE * 2 + 200) {
     var fx = this.flagX - scx
     var baseY = WORLD_GROUND_Y * TILE
@@ -2620,13 +2847,6 @@ Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
     ctx.fillStyle = C_COIN
     ctx.beginPath()
     ctx.arc(fx, baseY - 142, 7, 0, 6.283)
-    ctx.fill()
-    ctx.fillStyle = '#2fae5c'
-    ctx.beginPath()
-    ctx.moveTo(fx + 2, baseY - 138)
-    ctx.lineTo(fx + 34, baseY - 128)
-    ctx.lineTo(fx + 2, baseY - 118)
-    ctx.closePath()
     ctx.fill()
     /* 旗杆底座 */
     ctx.fillStyle = C_BRICK
