@@ -51,9 +51,8 @@
       <div class="about-box">
         <text class="about-version-text">超级马里奥 · 蘑菇王国冒险</text>
         <text class="about-version-tag">v{{ version }} · 有道词典笔 falcon 平台</text>
-        <text class="about-line">8 大世界 × 4 关 = 32 关完整通关 · 纯触摸操作 · 3 存档位自动保存</text>
-        <text class="about-line">敌人：栗子仔/绿龟/红龟/飞龟/刺龟/子弹比尔/墨鱼/跳跳鱼/锤子龟/云龟/硬壳虫</text>
-        <text class="about-line">陷阱：食人花/帕拉火球/火焰棒/岩浆 · 道具：蘑菇/火焰花/无敌星/1UP</text>
+        <text class="about-line">屏幕分左/中/右三个区域，触控对应区域即可操控（左移/右移/跳跃）</text>
+        <text class="about-line">32 关完整通关 · 3 存档位自动保存</text>
         <div class="about-actions">
           <div class="about-btn about-btn-debug" @touchstart="enterDebug" @click="enterDebug" @tap="enterDebug">
             <text class="about-btn-text">调试模式</text>
