@@ -17,8 +17,8 @@
 ## 安装 (真机)
 
 ```sh
-adb push 8001865309000002.2_1_11.amr /data/local/tmp/
-adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_11.amr"
+adb push 8001865309000002.2_1_12.amr /data/local/tmp/
+adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_12.amr"
 adb shell "miniapp_cli start 8001865309000002"
 ```
 
@@ -56,6 +56,10 @@ ui/
 - 仅本次运行生效，不写入存档
 
 ## 更新日志
+
+### v2.1.12 (2026-09-24)
+- 修复点击存档位进入游戏蓝屏（v2.1.10 误改 this.setInterval 导致），回退全局定时器并在 onUnload 统一清理
+- 详见 CHANGELOG.md
 
 ### v2.1.11 (2026-09-23)
 - 性能优化（对照 WalOS HaaS UI 开发文档）：城堡背景/地面视差层/HUD 静态标签/标题画面全部离屏缓存，每帧全屏 fillRect 与 fillText 大幅减少；动态元素改按活动列表渲染；所有缓存带降级路径（无离屏 canvas 自动回退）

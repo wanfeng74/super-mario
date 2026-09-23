@@ -1,5 +1,10 @@
 # 更新日志
 
+## v2.1.12 (2026-09-24)
+
+### 修复（真机崩溃，v2.1.10 引入）
+- 修复点击存档位进入游戏后蓝屏/卡死：v2.1.10 误将全局 `setInterval/setTimeout` 改写为 `this.setInterval/this.setTimeout`（误以为 falcon 页面基类提供该方法，实际开发文档中不存在；Vue 组件 this 上也没有）。真机上点存档位调 `startLoop()` 时 `this.setInterval is not a function` 抛错，游戏循环未启动，canvas 空白即蓝屏。现已回退为全局 `setInterval/setTimeout/clearInterval/clearTimeout`，并在 `onUnload` 统一清理游戏循环、标题动画、保存提示三个定时器，避免退出残留。
+
 ## v2.1.11 (2026-09-23)
 
 ### 性能优化（对照 WalOS HaaS UI 开发文档性能章节，词典笔软件渲染减负）
