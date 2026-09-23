@@ -730,38 +730,54 @@ var SPR_BUZZY = [
   '..qqqqqq.nnnnnn...qqqqqq',
 ]
 var SPR_BOWSER = [
-  '............rrr.................',
-  '........ttrrrs..................',
-  '.......tttrrss..................',
-  '.....rrttttsst..................',
-  '.s..trrttttttt..................',
-  's.sttrrtttttttt.................',
-  'sssrrrtttsttttt.................',
-  'ssssrtttssstttt.................',
-  'rsssttssrtsttttrrtttr...........',
-  '.r.sssstttsttttrrttrrst.........',
-  '.r.rrtrttrsttttrrtrrrsstrrr.....',
-  '....r...tsstttrrrttrssttrrs.....',
-  '........rssttrrrtttttttttsstr...',
-  '........ssttrrrtttttttttttttr...',
-  '......rsssttrrrttttttrrrttttt...',
-  '.......ss..ttrrrrrrttrrstttrrr..',
-  '.............ttsssrrttsstttrrs..',
-  '.........sss..r.sssrrtttttttss..',
-  '........ssr.sss.rsstrtttttttttr.',
-  '........ss..ssss..ttrtttrrrtttsr',
-  '........sr.ssssssrttrrttrrsttt..',
-  '........s..sssssttttrrtttssttrr.',
-  '.........r.sssssttttrrtttttttrrr',
-  '...........rsss.tttttrttttrrtss.',
-  '................tttttrrtttsttst.',
-  '.................tttttrrrtttttt.',
-  '..................tttttrrrrtttt.',
-  '..................sttttttrrrrrrr',
-  '.................rrssttssssrrrrr',
-  '................rrrssssssssssrr.',
-  '....................rrssrrssss..',
-  '...................rrrsrrrsssss.',
+  '..................rrrr..........................',
+  '............tttrrrrss...........................',
+  '............tttrrrrss...........................',
+  '..........tttttrrrsss...........................',
+  '.......rrrttttttssstt...........................',
+  '.......rrrttttttssstt...........................',
+  '.ss...trrrttttttttttt...........................',
+  's..stttrrrtttttttttttt..........................',
+  's..stttrrrtttttttttttt..........................',
+  'ssssrrrrrttttssttttttt..........................',
+  'ssssssrtttttsssstttttt..........................',
+  'ssssssrtttttsssstttttt..........................',
+  'rssssstttsssrttsttttttrrrtttttr.................',
+  '.rr.sssssstttttsttttttrrrtttrrrsst..............',
+  '.rr.sssssstttttsttttttrrrtttrrrsst..............',
+  '.rr.rrrttrtttrrsttttttrrrttrrrrsssttrrrr........',
+  '......r.....tssstttttrrrrtttrrssstttrrrs........',
+  '......r.....tssstttttrrrrtttrrssstttrrrs........',
+  '............rssstttrrrrrtttttttttttttsssttr.....',
+  '............ssstttrrrrttttttttttttttttttttr.....',
+  '............ssstttrrrrttttttttttttttttttttr.....',
+  '.........rssssstttrrrrtttttttttrrrrrttttttt.....',
+  '..........sss...tttrrrrrrrrrtttrrrssttttrrrrr...',
+  '..........sss...tttrrrrrrrrrtttrrrssttttrrrrr...',
+  '...................tttsssssrrrtttsssttttrrrss...',
+  '.............sssss...r..ssssrrrtttttttttttsss...',
+  '.............sssss...r..ssssrrrtttttttttttsss...',
+  '............sssr..ssss..rsssttrttttttttttttttr..',
+  '............sss...ssssss...tttrtttttrrrrtttttsrr',
+  '............sss...ssssss...tttrtttttrrrrtttttsrr',
+  '............srr.sssssssssrrtttrrrtttrrrsttttt...',
+  '............s...ssssssssttttttrrrttttssstttrrr..',
+  '............s...ssssssssttttttrrrttttssstttrrr..',
+  '.............rr.ssssssssttttttrrrttttttttttrrrrr',
+  '................rrssss..tttttttrrttttttrrrtsss..',
+  '................rrssss..tttttttrrttttttrrrtsss..',
+  '........................tttttttrrrtttttstttsst..',
+  '.........................ttttttttrrrrttttttttt..',
+  '.........................ttttttttrrrrttttttttt..',
+  '...........................tttttttrrrrrrtttttt..',
+  '...........................stttttttttrrrrrrrrrrr',
+  '...........................stttttttttrrrrrrrrrrr',
+  '.........................rrrssstttssssssrrrrrrrr',
+  '........................rrrrsssssssssssssssrrr..',
+  '........................rrrrsssssssssssssssrrr..',
+  '..............................rrrsssrrrssssss...',
+  '............................rrrrrsrrrrrsssssss..',
+  '............................rrrrrsrrrrrsssssss..',
 ]
 
 /* 原版斧头桥: 灰色金属链节 (SMB 城堡关桥面 tile, 12x12 烘焙 2x => 24x24)
@@ -1105,6 +1121,14 @@ Game.prototype.loadLevel = function (levelIdx) {
   this.castleX = 0
   this.lavaFireT = 0
   this._bumpTiles = []
+  /* 每关重置桥/斧头/Boss 状态: 城堡关摸斧头后 bridgeCollapse 残留会导致下一关
+     被误判为"桥已塌完+无Boss"而瞬间通关, 一路自动跳关直到获胜 */
+  this.bridges = []
+  this.bridgeCollapse = false
+  this.bridgeTimer = 0
+  this.bridgeIdx = 0
+  this.axe = null
+  this.boss = null
 
   for (var i = 0; i < segs.length; i++) {
     var s = segs[i]
@@ -2761,14 +2785,15 @@ Game.prototype.render = function () {
     ctx.fillRect(f.x - cam + 5, f.y + 5, f.w - 10, f.h - 10)
   }
 
-  /* 库巴 BOSS (原版 2x2 瓦片: SPR_BOWSER 32x32 x1.5 = 48x48; 受击闪白) */
+  /* 库巴 BOSS (原版 2x2 瓦片: SPR_BOWSER 已预烘培 48x48 整数倍, 避免 1.5x 小数缩放
+     在词典笔 canvas 上产生横向条纹; 受击闪白) */
   if (this.boss && this.boss.alive) {
     var b = this.boss
     if (b.x + b.w > cam && b.x < cam + VIEW_W) {
       if (b.hurtT > 0) {
-        drawSprite(ctx, SPR_BOWSER, 1.5, b.x - cam, b.y, b.vx > 0, function () { return C_WHITE })
+        drawSprite(ctx, SPR_BOWSER, 1, b.x - cam, b.y, b.vx > 0, function () { return C_WHITE })
       } else {
-        drawSprite(ctx, SPR_BOWSER, 1.5, b.x - cam, b.y, b.vx > 0)
+        drawSprite(ctx, SPR_BOWSER, 1, b.x - cam, b.y, b.vx > 0)
       }
     }
   }

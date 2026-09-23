@@ -218,10 +218,23 @@ function findEnemy(g, kind) {
   g.player.y = g.axe.y - g.player.h + 6
   g.tick(16)
   ok('axe taken -> bridge collapse', g.axe.taken && g.bridgeCollapse)
-  for (let f = 0; f < 400; f++) g.tick(16)
+  /* 最多 250 帧内到达 clear (桥 12 段*120ms + 库巴坠落), 避免越过 clear 自动进下一关后 boss 被重置 */
+  for (let f = 0; f < 250 && g.state !== 'clear'; f++) g.tick(16)
   ok('bridge fully collapsed', g.bridges.every((t) => t.dead))
-  ok('boss dies in lava after axe', !g.boss.alive)
+  ok('boss dies in lava after axe', g.boss && !g.boss.alive)
   ok('course clear after collapse', g.state === 'clear', g.state)
+  /* 回归: clear 结束后进入下一关, 不再被残留 bridgeCollapse 瞬间通关 (自动跳关获胜) */
+  let guard = 0
+  let cleared = false
+  while (guard < 600) {
+    g.tick(16)
+    guard++
+    if (g.state === 'clear') cleared = true
+    if (cleared && g.state === 'playing' && g.level === 5) break
+  }
+  ok('clear ends -> next level plays (no auto-skip)', g.level === 5 && cleared, 'level=' + g.level + ' state=' + g.state)
+  for (let f = 0; f < 60; f++) g.tick(16)
+  ok('next level stays playing (no auto-win)', g.state === 'playing' && g.level === 5, 'state=' + g.state + ' level=' + g.level)
 }
 
 /* ============ 6. 踩库巴 = 受伤 (原版 Stomp=xx) ============ */

@@ -118,10 +118,30 @@ for (let lv = 1; lv <= LEVELS.length; lv++) {
   for (let f = 0; f < 60; f++) g.tick(16)
   const after = g.bridges.filter((t) => t.dead).length
   ok('bridge collapses segment by segment', after > before, before + '->' + after)
-  /* 库巴坠入岩浆死亡 (桥全塌 + boss 死 → clear) */
-  for (let f = 0; f < 400; f++) g.tick(16)
-  ok('boss dies in lava after axe', !g.boss || !g.boss.alive, 'alive=' + (g.boss && g.boss.alive))
+  /* 库巴坠入岩浆死亡 (桥全塌 + boss 死 → clear); 最多 250 帧内判定, 避免越过 clear 自动进下一关 */
+  for (let f = 0; f < 250 && g.state !== 'clear'; f++) g.tick(16)
+  ok('boss dies in lava after axe', g.boss && !g.boss.alive, 'alive=' + (g.boss && g.boss.alive))
   ok('axe -> COURSE CLEAR', g.state === 'clear', g.state)
+}
+
+/* 6b. 城堡关清关后不得自动跳关 (bridgeCollapse 残留导致下一关被瞬间通关的回归) */
+{
+  const g = createGame(ctx, {})
+  g.start({ level: 4 })
+  g.player.x = g.axe.x - 4
+  g.player.y = g.axe.y - g.player.h + 6
+  g.tick(16)
+  let guard = 0
+  let cleared = false
+  while (guard < 600) {
+    g.tick(16)
+    guard++
+    if (g.state === 'clear') cleared = true
+    if (cleared && g.state === 'playing' && g.level === 5) break
+  }
+  ok('clear ends -> auto advance to level 5', g.level === 5 && cleared, 'level=' + g.level + ' state=' + g.state)
+  for (let f = 0; f < 60; f++) g.tick(16)
+  ok('next level stays playing (no auto-win)', g.state === 'playing' && g.level === 5, 'state=' + g.state + ' level=' + g.level)
 }
 
 /* 7. BOSS 火球是敌方火球 */
