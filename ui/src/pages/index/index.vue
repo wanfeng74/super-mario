@@ -5,7 +5,6 @@
       class="game-canvas"
       :width="canvasW"
       :height="canvasH"
-      :style="{ width: '960px', height: '266px' }"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -273,6 +272,9 @@ export default {
     titleTick() {
       if (!this._game || !this._ctx) return
       try {
+        this._ctx.setTransform(1, 0, 0, 1, 0, 0)
+        this._ctx.fillStyle = '#000'
+        this._ctx.fillRect(0, 0, this.canvasW, this.canvasH)
         var sc = this.canvasW / 960
         var offY = (this.canvasH - 266 * sc) / 2
         this._ctx.setTransform(sc, 0, 0, sc, 0, offY)
@@ -432,8 +434,11 @@ export default {
         if (dt > 100) dt = 100
         if (self.screen !== 'game' || !self._game) return
         try {
-          /* 多分辨率方案1: 等比缩放居中 (letterbox), 保持 960:266 宽高比不变形 */
+          /* 多分辨率: 等比缩放居中 (letterbox), 先填黑整个画布再缩放 */
           if (self._ctx) {
+            self._ctx.setTransform(1, 0, 0, 1, 0, 0)
+            self._ctx.fillStyle = '#000'
+            self._ctx.fillRect(0, 0, self.canvasW, self.canvasH)
             var sc = self.canvasW / 960
             var offY = (self.canvasH - 266 * sc) / 2
             self._ctx.setTransform(sc, 0, 0, sc, 0, offY)
@@ -578,15 +583,17 @@ export default {
 <style scoped>
 .wrapper {
   position: relative;
-  width: 960px;
-  height: 266px;
-  background-color: #6cb8f8;
+  width: 100%;
+  height: 100%;
+  background-color: #000;
 }
 
 .game-canvas {
   position: absolute;
   left: 0;
   top: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .title-layer {
