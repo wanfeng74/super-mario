@@ -1,5 +1,16 @@
 # 更新日志
 
+## v2.1.11 (2026-09-23)
+
+### 性能优化（对照 WalOS HaaS UI 开发文档性能章节，词典笔软件渲染减负）
+- 城堡关背景重绘减负：黑砖墙 + 熔岩带原为每帧 ~60 次全屏/长条 fillRect（Overdraw 重灾区），预渲染为周期离屏 canvas，每帧 1 次 drawImage（相机跨周期时才重绘）
+- 地面主题背景分层缓存：远山/近山/云三层视差背景原为每帧 ~15 次 drawHill/drawCloud（各含多次贴图 blit + fillRect），预渲染为周期贴图条后每帧平铺 drawImage 即可
+- HUD 静态标签层缓存：SCORE/COINS/TIME/WORLD/x/小头像原为每帧 10+ 次 fillText（词典笔文本渲染开销大），预渲染到离屏缓存，每帧只画动态数值（分数/金币/时间/生命/强化状态）
+- 动态元素按列表渲染：岩浆/未用问号块/抖动砖改为遍历 lavaList / _animQblocks / _bumpTiles 三个活动列表，替代每帧全量扫 tiles（数百瓦片）
+- 清除双重全屏填充：城堡/地下主题背景底色由 renderBackdrop 统一负责，避免 render() 与 renderBackdrop 重复 fillRect 全屏
+- 标题画面静态层缓存：天空+地面条+标题文字+角色预渲染，每帧只重画缓慢滚动的背景山
+- 所有缓存均带降级路径：falcon 无离屏 canvas 时自动回退原逐帧绘制逻辑，保证显示正确优先
+
 ## v2.1.10 (2026-09-23)
 
 ### 工程维护（对照 WalOS HaaS UI 开发文档体检）
