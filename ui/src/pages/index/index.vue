@@ -273,7 +273,9 @@ export default {
     titleTick() {
       if (!this._game || !this._ctx) return
       try {
-        this._ctx.setTransform(this.canvasW / 960, 0, 0, this.canvasH / 266, 0, 0)
+        var sc = this.canvasW / 960
+        var offY = (this.canvasH - 266 * sc) / 2
+        this._ctx.setTransform(sc, 0, 0, sc, 0, offY)
         this._game.renderTitle()
       } catch (e) {}
     },
@@ -430,8 +432,12 @@ export default {
         if (dt > 100) dt = 100
         if (self.screen !== 'game' || !self._game) return
         try {
-          /* 多分辨率: 把逻辑坐标系 960x266 映射到设备物理分辨率 */
-          if (self._ctx) self._ctx.setTransform(self.canvasW / 960, 0, 0, self.canvasH / 266, 0, 0)
+          /* 多分辨率方案1: 等比缩放居中 (letterbox), 保持 960:266 宽高比不变形 */
+          if (self._ctx) {
+            var sc = self.canvasW / 960
+            var offY = (self.canvasH - 266 * sc) / 2
+            self._ctx.setTransform(sc, 0, 0, sc, 0, offY)
+          }
           self._game.tick(dt)
           self._game.render()
         } catch (e) {}
@@ -513,10 +519,10 @@ export default {
       var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
       var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
       if (x == null || y == null) return null
-      /* 物理触摸坐标 -> 逻辑坐标系 (960x266), 热区判断按逻辑坐标 */
-      var sx = this.canvasW > 0 ? 960 / this.canvasW : 1
-      var sy = this.canvasH > 0 ? 266 / this.canvasH : 1
-      return { x: x * sx, y: y * sy }
+      /* 物理触摸坐标 -> 逻辑坐标系 (960x266), 等比缩放 + 垂直居中偏移 */
+      var sc = this.canvasW > 0 ? this.canvasW / 960 : 1
+      var offY = (this.canvasH - 266 * sc) / 2
+      return { x: x / sc, y: (y - offY) / sc }
     },
     /* 预览器/部分环境鼠标事件兜底: 统一转成触摸处理 */
     onMouseDown(e) {
