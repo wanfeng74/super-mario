@@ -17,8 +17,8 @@
 ## 安装 (真机)
 
 ```sh
-adb push 8001865309000002.2_1_12.amr /data/local/tmp/
-adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_12.amr"
+adb push 8001865309000002.2_1_13.amr /data/local/tmp/
+adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_13.amr"
 adb shell "miniapp_cli start 8001865309000002"
 ```
 
@@ -56,6 +56,11 @@ ui/
 - 仅本次运行生效，不写入存档
 
 ## 更新日志
+
+### v2.1.13 (2026-09-24)
+- 多分辨率自适应：canvas 跟随设备分辨率（$falcon.env.deviceWidth/Height），逻辑 960×266 不变，渲染等比映射全屏；触摸坐标自动换算
+- CVI 机型适配：新增 32-bit ARM（cvitek）版 amr（libjsapi_bridge.so），标准版仍为 aarch64（libjsapi_panet.so）
+- 详见 CHANGELOG.md
 
 ### v2.1.12 (2026-09-24)
 - 修复点击存档位进入游戏蓝屏（v2.1.10 误改 this.setInterval 导致），回退全局定时器并在 onUnload 统一清理

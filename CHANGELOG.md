@@ -1,5 +1,17 @@
 # 更新日志
 
+## v2.1.13 (2026-09-24)
+
+### 多分辨率自适应
+- 逻辑坐标系保持 960×266 不变（engine.js 零改动），canvas 物理尺寸启动时读 `$falcon.env.deviceWidth/deviceHeight` 自动跟随设备分辨率
+- 渲染前 `ctx.setTransform(scaleX,0,0,scaleY,0,0)` 把逻辑画面映射到全屏；宽度铺满、高度按比例映射
+- 触摸/鼠标坐标自动从物理像素换算回逻辑坐标系，热区判断逻辑不变
+- 读不到设备分辨率时保底回退 960×266（y02_1 真机行为不变）
+
+### CVI 机型适配
+- 新增 CVI（cvitek 32-bit ARM）机型支持：CVI 实例使用 `libjsapi_bridge.so`（32-bit EABI5）替代 y02_1 的 `libjsapi_panet.so`（aarch64）
+- 标准版 amr 仍带 panet.so（aarch64）；CVI 版 amr 带 bridge.so（arm32），分别出包
+
 ## v2.1.12 (2026-09-24)
 
 ### 修复（真机崩溃，v2.1.10 引入）

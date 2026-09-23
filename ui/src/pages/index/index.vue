@@ -3,9 +3,9 @@
     <canvas
       ref="game"
       class="game-canvas"
-      :width="960"
-      :height="266"
-      :style="{ width: '960px', height: '266px' }"
+      :width="canvasW"
+      :height="canvasH"
+      :style="{ width: canvasW + 'px', height: canvasH + 'px' }"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -147,6 +147,9 @@ export default {
       debugStar: false,
       debugGroundTile: false,
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
+      /* 多分辨率自适应: 逻辑坐标系固定 960x266, canvas 物理尺寸跟随设备分辨率 */
+      canvasW: 960,
+      canvasH: 266,
     }
   },
   methods: {
@@ -182,6 +185,19 @@ export default {
 
     /* ---- 初始化 ---- */
     initGame() {
+      /* 多分辨率自适应: 读设备实际分辨率, canvas 物理尺寸跟随; 读不到则保底 960x266 */
+      try {
+        var dw = 960, dh = 266
+        if (typeof $falcon !== 'undefined' && $falcon.env) {
+          if ($falcon.env.deviceWidth > 0) dw = $falcon.env.deviceWidth
+          if ($falcon.env.deviceHeight > 0) dh = $falcon.env.deviceHeight
+        } else if (typeof window !== 'undefined' && window.innerWidth > 0) {
+          dw = window.innerWidth
+          dh = window.innerHeight
+        }
+        this.canvasW = dw
+        this.canvasH = dh
+      } catch (e0) {}
       var canvas = this.$refs.game
       var ctx = null
       try {
@@ -257,6 +273,7 @@ export default {
     titleTick() {
       if (!this._game || !this._ctx) return
       try {
+        this._ctx.setTransform(this.canvasW / 960, 0, 0, this.canvasH / 266, 0, 0)
         this._game.renderTitle()
       } catch (e) {}
     },
@@ -413,6 +430,8 @@ export default {
         if (dt > 100) dt = 100
         if (self.screen !== 'game' || !self._game) return
         try {
+          /* 多分辨率: 把逻辑坐标系 960x266 映射到设备物理分辨率 */
+          if (self._ctx) self._ctx.setTransform(self.canvasW / 960, 0, 0, self.canvasH / 266, 0, 0)
           self._game.tick(dt)
           self._game.render()
         } catch (e) {}
@@ -494,7 +513,10 @@ export default {
       var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
       var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
       if (x == null || y == null) return null
-      return { x: x, y: y }
+      /* 物理触摸坐标 -> 逻辑坐标系 (960x266), 热区判断按逻辑坐标 */
+      var sx = this.canvasW > 0 ? 960 / this.canvasW : 1
+      var sy = this.canvasH > 0 ? 266 / this.canvasH : 1
+      return { x: x * sx, y: y * sy }
     },
     /* 预览器/部分环境鼠标事件兜底: 统一转成触摸处理 */
     onMouseDown(e) {
@@ -550,8 +572,8 @@ export default {
 <style scoped>
 .wrapper {
   position: relative;
-  width: 960px;
-  height: 266px;
+  width: 100%;
+  height: 100%;
   background-color: #6cb8f8;
 }
 
@@ -565,8 +587,8 @@ export default {
   position: absolute;
   left: 0;
   top: 0;
-  width: 960px;
-  height: 266px;
+  width: 100%;
+  height: 100%;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
