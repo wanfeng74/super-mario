@@ -272,12 +272,7 @@ export default {
     titleTick() {
       if (!this._game || !this._ctx) return
       try {
-        this._ctx.setTransform(1, 0, 0, 1, 0, 0)
-        this._ctx.fillStyle = '#000'
-        this._ctx.fillRect(0, 0, this.canvasW, this.canvasH)
-        var sc = this.canvasW / 960
-        var offY = (this.canvasH - 266 * sc) / 2
-        this._ctx.setTransform(sc, 0, 0, sc, 0, offY)
+        this._ctx.setTransform(this.canvasW / 960, 0, 0, this.canvasH / 266, 0, 0)
         this._game.renderTitle()
       } catch (e) {}
     },
@@ -434,14 +429,9 @@ export default {
         if (dt > 100) dt = 100
         if (self.screen !== 'game' || !self._game) return
         try {
-          /* 多分辨率: 等比缩放居中 (letterbox), 先填黑整个画布再缩放 */
+          /* 多分辨率: 非等比拉伸铺满全屏, 逻辑 960x266 映射到整个物理画布 */
           if (self._ctx) {
-            self._ctx.setTransform(1, 0, 0, 1, 0, 0)
-            self._ctx.fillStyle = '#000'
-            self._ctx.fillRect(0, 0, self.canvasW, self.canvasH)
-            var sc = self.canvasW / 960
-            var offY = (self.canvasH - 266 * sc) / 2
-            self._ctx.setTransform(sc, 0, 0, sc, 0, offY)
+            self._ctx.setTransform(self.canvasW / 960, 0, 0, self.canvasH / 266, 0, 0)
           }
           self._game.tick(dt)
           self._game.render()
@@ -524,10 +514,10 @@ export default {
       var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
       var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
       if (x == null || y == null) return null
-      /* 物理触摸坐标 -> 逻辑坐标系 (960x266), 等比缩放 + 垂直居中偏移 */
-      var sc = this.canvasW > 0 ? this.canvasW / 960 : 1
-      var offY = (this.canvasH - 266 * sc) / 2
-      return { x: x / sc, y: (y - offY) / sc }
+      /* 物理触摸坐标 -> 逻辑坐标系 (960x266), 非等比拉伸铺满 */
+      var sx = this.canvasW > 0 ? 960 / this.canvasW : 1
+      var sy = this.canvasH > 0 ? 266 / this.canvasH : 1
+      return { x: x * sx, y: y * sy }
     },
     /* 预览器/部分环境鼠标事件兜底: 统一转成触摸处理 */
     onMouseDown(e) {
