@@ -16,10 +16,26 @@
 
 ## 安装 (真机)
 
+双平台产物：
+- **rk/**：瑞芯微 aarch64 机型（panet.so）
+- **cvi/**：cvitek arm32 机型（bridge.so）
+
 ```sh
-adb push 8001865309000002.2_1_13.amr /data/local/tmp/
-adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_13.amr"
+# rk 版 (aarch64)
+adb push rk/8001865309000002.2_1_13-rk.amr /data/local/tmp/
+adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_13-rk.amr"
+
+# cvi 版 (arm32)
+adb push cvi/8001865309000002.2_1_13-cvi.amr /data/local/tmp/
+adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_13-cvi.amr"
+
 adb shell "miniapp_cli start 8001865309000002"
+```
+
+## 双平台打包
+
+```sh
+node scripts/build-amr.mjs   # 一条命令同时出 rk/ 和 cvi/ 两个包
 ```
 
 ## 本地预览 / 构建
