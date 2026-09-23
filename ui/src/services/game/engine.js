@@ -1064,6 +1064,13 @@ function Game(ctx, hooks) {
   /* 地面渲染模式: false=纯色填充(默认,性能最优) / true=原版贴图平铺. 由调试界面运行时切换 */
   this.groundTile = !!(hooks && hooks.groundTile)
   this.state = 'idle' // idle | playing | dead | clear | gameover
+  /* 背景/静态渲染缓存 (falcon 无离屏 canvas 时为 null, 自动回退逐帧绘制) */
+  this._bgCastleCache = null
+  this._bgHillFarCache = null
+  this._bgHillNearCache = null
+  this._bgCloudCache = null
+  this._hudStaticCache = null
+  this._titleStaticCache = null
   this.reset()
 }
 
@@ -1105,12 +1112,20 @@ Game.prototype.reset = function () {
   this.invuln = 0
   this.playerBottomPrev = 0
   this._bumpTiles = []
+  this._animQblocks = []
 }
 
 /* 从关卡数据构建世界 */
 Game.prototype.loadLevel = function (levelIdx) {
   var segs = LEVELS[(levelIdx - 1) % LEVELS.length]
   this.theme = LEVEL_THEMES[levelIdx] || 'overworld'
+  /* 主题切换: 失效背景/静态渲染缓存 (下一帧自动重建) */
+  this._bgCastleCache = null
+  this._bgHillFarCache = null
+  this._bgHillNearCache = null
+  this._bgCloudCache = null
+  this._hudStaticCache = null
+  this._titleStaticCache = null
   this.tiles = []
   this.pipes = []
   this.enemies = []
@@ -1121,6 +1136,7 @@ Game.prototype.loadLevel = function (levelIdx) {
   this.castleX = 0
   this.lavaFireT = 0
   this._bumpTiles = []
+  this._animQblocks = []
   /* 每关重置桥/斧头/Boss 状态: 城堡关摸斧头后 bridgeCollapse 残留会导致下一关
      被误判为"桥已塌完+无Boss"而瞬间通关, 一路自动跳关直到获胜 */
   this.bridges = []
@@ -1146,7 +1162,11 @@ Game.prototype.loadLevel = function (levelIdx) {
     } else if (s.t === 'b') {
       this.tiles.push({ type: 'brick', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'q') {
-      this.tiles.push({ type: 'qblock', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE, used: false, content: s.content || 'coin' })
+      var qt = { type: 'qblock', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE, used: false, content: s.content || 'coin' }
+      this.tiles.push(qt)
+      /* 未用问号块收集到动态渲染列表 (闪烁动画每帧重画), 避免 renderTiles 每帧全量扫 tiles */
+      if (!this._animQblocks) this._animQblocks = []
+      this._animQblocks.push(qt)
     } else if (s.t === 'h') {
       this.tiles.push({ type: 'hard', x: s.x * TILE, y: s.y * TILE, w: TILE, h: TILE })
     } else if (s.t === 'p') {
@@ -2659,8 +2679,11 @@ Game.prototype.tick = function (dtMs) {
 Game.prototype.render = function () {
   var ctx = this.ctx
   var cam = Math.round(this.camX)
-  ctx.fillStyle = this.theme === 'underground' ? C_UNDER_BG : (this.theme === 'castle' ? C_CASTLE_BG : C_SKY)
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+  /* 城堡/地下背景底色由 renderBackdrop 负责 (避免双重全屏填充 Overdraw); 地面主题直接填天空 */
+  if (this.theme !== 'castle' && this.theme !== 'underground') {
+    ctx.fillStyle = C_SKY
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+  }
 
   this.renderBackdrop(ctx, cam)
   this.renderTiles(ctx, cam)
@@ -2816,8 +2839,33 @@ Game.prototype.render = function () {
 
 Game.prototype.renderBackdrop = function (ctx, cam) {
   if (this.theme === 'castle') {
-    /* 城堡: 黑砖墙 + 底部熔岩带 */
+    /* 城堡: 黑砖墙 + 底部熔岩带 —— 背景是周期图案, 预渲染到离屏缓存后一次 drawImage,
+       替代每帧 40+ 次全屏高度 fillRect (Overdraw 重灾区) */
     var cw = -((cam * 0.15) % 24)
+    var cc = this._bgCastleCache
+    if (!cc) {
+      cc = ensureCanvas(VIEW_W + 24, VIEW_H)
+      if (cc) {
+        var cctx = cc.getContext('2d')
+        cctx.fillStyle = '#2a2a30'
+        cctx.fillRect(0, 0, cc.width, cc.height)
+        cctx.fillStyle = '#3a3a42'
+        for (var cxx = 0; cxx < cc.width; cxx += 24) {
+          cctx.fillRect(cxx, 0, 6, cc.height)
+        }
+        cctx.fillStyle = '#201c18'
+        for (var cyy = 0; cyy < VIEW_H; cyy += 12) {
+          var coff = (Math.floor(cyy / 24) % 2) * 12
+          cctx.fillRect(coff, cyy, cc.width, 2)
+        }
+        this._bgCastleCache = cc
+      }
+    }
+    if (cc) {
+      ctx.drawImage(cc, cw, 0)
+      return
+    }
+    /* 降级: 无离屏 canvas, 逐帧原逻辑绘制 */
     ctx.fillStyle = '#2a2a30'
     ctx.fillRect(0, 0, VIEW_W, VIEW_H)
     ctx.fillStyle = '#3a3a42'
@@ -2826,8 +2874,8 @@ Game.prototype.renderBackdrop = function (ctx, cam) {
     }
     ctx.fillStyle = '#201c18'
     for (var cy = 0; cy < VIEW_H; cy += 12) {
-      var coff = (Math.floor(cy / 24) % 2) * 12
-      ctx.fillRect(cw + coff, cy, VIEW_W, 2)
+      var coff2 = (Math.floor(cy / 24) % 2) * 12
+      ctx.fillRect(cw + coff2, cy, VIEW_W, 2)
     }
     return
   }
@@ -2838,32 +2886,80 @@ Game.prototype.renderBackdrop = function (ctx, cam) {
     ctx.fillRect(0, 0, VIEW_W, VIEW_H)
     return
   }
-  if (this.theme === 'castle') {
-    /* 城堡: 黑色背景 */
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
-    return
-  }
 
-  /* 远山 (视差 0.2), 贴图平铺, 山底延伸地面顶 (240) 消除缝隙 */
+  /* 地面主题: 远山(视差 0.2) / 近山(0.35) / 云(0.5) 三层分别预渲染为周期贴图条,
+     每帧平铺 drawImage, 替代每帧 ~15 次 drawHill/drawCloud (各含多次 fillRect) */
+  /* 远山层: 周期 640, 山底延伸地面顶 (240) 消除缝隙 */
   var m1 = -((cam * 0.2) % 640)
-  for (var i = 0; i < 3; i++) {
-    var mx = m1 + i * 640
-    this.drawHill(ctx, mx + 60, WORLD_GROUND_Y * TILE, 190)
+  var hf = this._bgHillFarCache
+  if (!hf) {
+    hf = ensureCanvas(640, WORLD_GROUND_Y * TILE)
+    if (hf) {
+      var hfc = hf.getContext('2d')
+      hfc.clearRect(0, 0, hf.width, hf.height)
+      this.drawHill(hfc, 60, WORLD_GROUND_Y * TILE, 190)
+      this._bgHillFarCache = hf
+    }
   }
-  var m2 = -((cam * 0.35) % 900)
-  for (var k = 0; k < 2; k++) {
-    var mxx = m2 + k * 900
-    this.drawHill(ctx, mxx + 120, WORLD_GROUND_Y * TILE, 240)
+  if (hf) {
+    for (var hi = 0; hi < 3; hi++) {
+      ctx.drawImage(hf, m1 + hi * 640, 0)
+    }
+  } else {
+    for (var i = 0; i < 3; i++) {
+      var mx = m1 + i * 640
+      this.drawHill(ctx, mx + 60, WORLD_GROUND_Y * TILE, 190)
+    }
   }
 
-  /* 云 (视差 0.5) */
+  /* 近山层: 周期 900 */
+  var m2 = -((cam * 0.35) % 900)
+  var hn = this._bgHillNearCache
+  if (!hn) {
+    hn = ensureCanvas(900, WORLD_GROUND_Y * TILE)
+    if (hn) {
+      var hnc = hn.getContext('2d')
+      hnc.clearRect(0, 0, hn.width, hn.height)
+      this.drawHill(hnc, 120, WORLD_GROUND_Y * TILE, 240)
+      this._bgHillNearCache = hn
+    }
+  }
+  if (hn) {
+    for (var hk = 0; hk < 2; hk++) {
+      ctx.drawImage(hn, m2 + hk * 900, 0)
+    }
+  } else {
+    for (var k = 0; k < 2; k++) {
+      var mxx = m2 + k * 900
+      this.drawHill(ctx, mxx + 120, WORLD_GROUND_Y * TILE, 240)
+    }
+  }
+
+  /* 云层: 周期 600 */
   var c1 = -((cam * 0.5) % 600)
-  ctx.fillStyle = '#ffffff'
-  for (var q = 0; q < 3; q++) {
-    var cx = c1 + q * 600
-    this.drawCloud(ctx, cx + 40, 50, 1.1)
-    this.drawCloud(ctx, cx + 380, 92, 0.8)
+  var cd = this._bgCloudCache
+  if (!cd) {
+    cd = ensureCanvas(600, 140)
+    if (cd) {
+      var cdc = cd.getContext('2d')
+      cdc.clearRect(0, 0, cd.width, cd.height)
+      this.drawCloud(cdc, 40, 50, 1.1)
+      this.drawCloud(cdc, 380, 92, 0.8)
+      this._bgCloudCache = cd
+    }
+  }
+  if (cd) {
+    ctx.fillStyle = '#ffffff'
+    for (var q = 0; q < 3; q++) {
+      ctx.drawImage(cd, c1 + q * 600, 0)
+    }
+  } else {
+    ctx.fillStyle = '#ffffff'
+    for (var q2 = 0; q2 < 3; q2++) {
+      var cx2 = c1 + q2 * 600
+      this.drawCloud(ctx, cx2 + 40, 50, 1.1)
+      this.drawCloud(ctx, cx2 + 380, 92, 0.8)
+    }
   }
 }
 
@@ -2925,30 +3021,44 @@ Game.prototype.renderTiles = function (ctx, cam) {
     this._renderStaticTiles(ctx, cam, themeCM)
   }
 
-  /* ===== 动态元素: 岩浆动画 + 未用问号块 + 抖动砖 (不缓存, 每帧重画) ===== */
-  for (var i = 0; i < this.tiles.length; i++) {
-    var t = this.tiles[i]
-    if (t.dead || t.x + t.w < cam || t.x > cam + VIEW_W) continue
-    var sx = t.x - cam
-    if (t.type === 'lava') {
+  /* ===== 动态元素: 岩浆动画 + 未用问号块 + 抖动砖 (不缓存, 每帧重画).
+     只遍历三个活动小列表 (lavaList/_animQblocks/_bumpTiles), 替代每帧全量扫 tiles */
+  var lvList = this.lavaList
+  if (lvList && lvList.length > 0) {
+    for (var li2 = 0; li2 < lvList.length; li2++) {
+      var lv2 = lvList[li2]
+      if (lv2.x + lv2.w < cam || lv2.x > cam + VIEW_W) continue
+      var lsx = lv2.x - cam
       /* 岩浆: 橙红色 + 黄色波纹 */
       ctx.fillStyle = '#ff4400'
-      ctx.fillRect(sx, t.y, t.w, t.h)
+      ctx.fillRect(lsx, lv2.y, lv2.w, lv2.h)
       ctx.fillStyle = '#ffaa00'
       var wave = Math.floor(this.animT / 200) % 2
-      for (var wx = 0; wx < t.w; wx += TILE) {
-        ctx.fillRect(sx + wx + wave * 4, t.y + 2, 12, 4)
+      for (var wx = 0; wx < lv2.w; wx += TILE) {
+        ctx.fillRect(lsx + wx + wave * 4, lv2.y + 2, 12, 4)
       }
       ctx.fillStyle = '#ff6600'
-      ctx.fillRect(sx, t.y + t.h - 4, t.w, 4)
-    } else if (t.type === 'brick' && t.bumpT > 0) {
-      /* 被顶的砖: 抖动 */
-      var bY = t.y - Math.sin(t.bumpT * 30) * 4
-      drawSprite(ctx, BRICK, undefined, sx, bY, false, themeCM)
-    } else if (t.type === 'qblock' && !t.used) {
-      /* 未用问号块: 闪烁动画 */
+      ctx.fillRect(lsx, lv2.y + lv2.h - 4, lv2.w, 4)
+    }
+  }
+  var aq = this._animQblocks
+  if (aq && aq.length > 0) {
+    for (var aqi = 0; aqi < aq.length; aqi++) {
+      var aqt = aq[aqi]
+      if (aqt.used || aqt.dead || aqt.x > cam + VIEW_W || aqt.x + aqt.w < cam) continue
+      var qsx = aqt.x - cam
       var qi = Math.floor(this.animT / 110) % QBLOCK.length
-      drawSprite(ctx, QBLOCK[qi], undefined, sx, t.y, false, themeCM)
+      drawSprite(ctx, QBLOCK[qi], undefined, qsx, aqt.y, false, themeCM)
+    }
+  }
+  var btiles2 = this._bumpTiles
+  if (btiles2 && btiles2.length > 0) {
+    for (var bbi = 0; bbi < btiles2.length; bbi++) {
+      var bbt = btiles2[bbi]
+      if (bbt.dead || bbt.x > cam + VIEW_W || bbt.x + bbt.w < cam) continue
+      var bsx = bbt.x - cam
+      var bY = bbt.y - Math.sin(bbt.bumpT * 30) * 4
+      drawSprite(ctx, BRICK, undefined, bsx, bY, false, themeCM)
     }
   }
 
@@ -3155,20 +3265,51 @@ Game.prototype.renderParticles = function (ctx, cam) {
 }
 
 Game.prototype.renderHUD = function (ctx) {
+  /* 静态标签层 (SCORE/COINS/TIME/WORLD/x/小头像) 预渲染到离屏缓存, 每帧一次 drawImage,
+     替代每帧 10+ 次 fillText (文本在词典笔软件渲染上开销大) */
+  var s = this._hudStaticCache
+  if (!s) {
+    s = ensureCanvas(VIEW_W, 110)
+    if (s) {
+      var sc = s.getContext('2d')
+      sc.font = 'bold 17px monospace'
+      sc.textAlign = 'left'
+      this.hudText(sc, 'SCORE', 24, 26)
+      this.hudText(sc, 'COINS', 400, 26)
+      sc.textAlign = 'right'
+      this.hudText(sc, 'TIME', 936, 26)
+      this.hudText(sc, 'WORLD ' + this.level, 936, 74)
+      sc.textAlign = 'left'
+      this.hudText(sc, 'x', 96, 26)
+      drawSprite(sc, SMALL_STAND, 1, 52, 10, false)
+      this._hudStaticCache = s
+    }
+  }
+  if (s) {
+    ctx.drawImage(s, 0, 0)
+  } else {
+    /* 降级: 无离屏 canvas, 逐帧原逻辑绘制静态标签 */
+    ctx.font = 'bold 17px monospace'
+    ctx.textAlign = 'left'
+    this.hudText(ctx, 'SCORE', 24, 26)
+    this.hudText(ctx, 'COINS', 400, 26)
+    ctx.textAlign = 'right'
+    this.hudText(ctx, 'TIME', 936, 26)
+    this.hudText(ctx, 'WORLD ' + this.level, 936, 74)
+    ctx.textAlign = 'left'
+    this.hudText(ctx, 'x', 96, 26)
+    drawSprite(ctx, SMALL_STAND, 1, 52, 10, false)
+  }
+
+  /* 动态数值 (每帧变化, 不缓存) */
   ctx.font = 'bold 17px monospace'
   ctx.textAlign = 'left'
-  this.hudText(ctx, 'SCORE', 24, 26)
   this.hudText(ctx, pad6(this.score), 24, 48)
-  this.hudText(ctx, 'COINS', 400, 26)
   this.hudText(ctx, 'x' + pad2(this.coins), 400, 48)
   ctx.textAlign = 'right'
-  this.hudText(ctx, 'TIME', 936, 26)
   this.hudText(ctx, '' + Math.max(0, Math.round(this.time)), 936, 48)
-  this.hudText(ctx, 'WORLD ' + this.level, 936, 74)
-  ctx.textAlign = 'left'
-  /* 生命 (马里奥小头像) */
   this.hudText(ctx, 'x' + this.lives, 96, 26)
-  drawSprite(ctx, SMALL_STAND, 1, 52, 10, false)
+  ctx.textAlign = 'left'
   /* 强化状态 */
   var p = this.player
   if (p && p.power !== 'small') {
@@ -3275,6 +3416,40 @@ Game.prototype.renderOverlay = function (ctx) {
 
 Game.prototype.renderTitle = function (levelText) {
   var ctx = this.ctx
+  /* 标题静态层 (天空+地面条+文字+角色) 预渲染, 每帧只重画滚动背景山 (animT 缓慢滚动) */
+  var s = this._titleStaticCache
+  if (!s) {
+    s = ensureCanvas(VIEW_W, VIEW_H)
+    if (s) {
+      var sc = s.getContext('2d')
+      sc.clearRect(0, 0, s.width, s.height)
+      sc.fillStyle = C_GROUND_TOP
+      sc.fillRect(0, 226, VIEW_W, 12)
+      sc.fillStyle = C_GROUND_BODY
+      sc.fillRect(0, 238, VIEW_W, 28)
+      sc.font = 'bold 52px monospace'
+      sc.textAlign = 'center'
+      sc.fillStyle = C_BLACK
+      sc.fillText('SUPER MARIO', VIEW_W / 2 + 3, 96 + 3)
+      sc.fillStyle = C_RED
+      sc.fillText('SUPER MARIO', VIEW_W / 2, 96)
+      sc.font = 'bold 20px monospace'
+      sc.fillStyle = C_QB_LIGHT
+      sc.fillText('WIFI EDITION', VIEW_W / 2, 128)
+      sc.textAlign = 'left'
+      drawSprite(sc, SMALL_STAND, 3, 300, 158, false)
+      drawSprite(sc, SPR_GOOMBA, 2, 620, 164, false)
+      this._titleStaticCache = s
+    }
+  }
+  if (s) {
+    ctx.fillStyle = C_SKY
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    this.renderBackdrop(ctx, this.animT * 0.05)
+    ctx.drawImage(s, 0, 0)
+    return
+  }
+  /* 降级: 无离屏 canvas, 逐帧原逻辑绘制 */
   ctx.fillStyle = C_SKY
   ctx.fillRect(0, 0, VIEW_W, VIEW_H)
   this.renderBackdrop(ctx, this.animT * 0.05)
