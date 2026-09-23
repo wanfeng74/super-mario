@@ -1,5 +1,12 @@
 # 更新日志
 
+## v2.1.15 (2026-09-24)
+
+### 多分辨率方案修正
+- 参考官方文档 `setViewPort(960)` 机制修正：CSS 布局尺寸保持 960×266（框架自动按设备宽度缩放 DOM），canvas 绘图缓冲区用物理像素（deviceWidth×deviceHeight）
+- 修复上一版把 canvas CSS 写成物理像素导致的双重缩放问题
+- canvas 内部 setTransform 等比缩放居中（letterbox），与框架 viewport 机制配合
+
 ## v2.1.14 (2026-09-24)
 
 ### 多分辨率方案调整

@@ -5,7 +5,7 @@
       class="game-canvas"
       :width="canvasW"
       :height="canvasH"
-      :style="{ width: canvasW + 'px', height: canvasH + 'px' }"
+      :style="{ width: '960px', height: '266px' }"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -578,8 +578,8 @@ export default {
 <style scoped>
 .wrapper {
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: 960px;
+  height: 266px;
   background-color: #6cb8f8;
 }
 
@@ -593,8 +593,8 @@ export default {
   position: absolute;
   left: 0;
   top: 0;
-  width: 100%;
-  height: 100%;
+  width: 960px;
+  height: 266px;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
