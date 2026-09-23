@@ -1,5 +1,12 @@
 # 更新日志
 
+## v2.1.10 (2026-09-23)
+
+### 工程维护（对照 WalOS HaaS UI 开发文档体检）
+- 定时器统一走页面基类管理：标题动画、保存提示、游戏循环全部改用 `this.setInterval / this.setTimeout`，页面卸载时由 `release()` 自动清理，消除退出残留定时器（文档：全局事件/定时器需 on/off 成对、卸载释放）
+- README 对齐实际实现：存档为应用级 KV 存储（`jsapi.storage`，key `mario_save_v1`）、调试模式入口为关于页按钮、补全 `preview` / `build:simulator` / `build:dev` 命令
+- 补充交接文档：PStore 上架准备清单（免费应用 checkUpdate 接入流程、机型表、Node 24 注意事项）
+
 ## v2.1.9 (2026-09-23)
 
 ### 界面

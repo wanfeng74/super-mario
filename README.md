@@ -12,13 +12,13 @@
 
 ## 存档
 
-存档写入 `/userdisk/database/mario_save.json`，共 **3 个存档位**。
+存档写入词典笔应用级 KV 存储（`jsapi.storage`，key `mario_save_v1`，仅本应用数据目录可见），共 **3 个存档位**；浏览器预览回退 localStorage。
 
 ## 安装 (真机)
 
 ```sh
-adb push 8001865309000002.2_1_3.amr /data/local/tmp/
-adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_3.amr"
+adb push 8001865309000002.2_1_10.amr /data/local/tmp/
+adb shell "miniapp_cli install /data/local/tmp/8001865309000002.2_1_10.amr"
 adb shell "miniapp_cli start 8001865309000002"
 ```
 
@@ -26,8 +26,10 @@ adb shell "miniapp_cli start 8001865309000002"
 
 ```sh
 pnpm install -C ./ui
-pnpm -C ui preview          # 浏览器预览 (键盘: 方向键移动, 空格/↑ 跳, P/Esc 暂停)
-pnpm -C ui package          # 生产 AMR (aiot-cli -c -q -p)
+pnpm -C ui preview           # 浏览器预览 (键盘: 方向键移动, 空格/↑ 跳, P/Esc 暂停)
+pnpm -C ui build:simulator   # 模拟器预览 (需在插件中配置 Simulator Path)
+pnpm -C ui build:dev         # 编译调试版 (不压缩不打包, 有完整堆栈, 供 DevTools 定位)
+pnpm -C ui package           # 生产 AMR (aiot-cli -c -q -p, 压缩混淆, 发布用)
 ```
 
 ## 工程结构
@@ -47,12 +49,18 @@ ui/
 
 ## 调试模式
 
-关于页连续点击版本号 10 次进入调试模式：
+关于页点击「调试模式」按钮进入：
 - 可选关卡（1-1 ~ 8-4）
-- 无敌模式
+- 无敌开关
+- 地面贴图开关（纯色 / 原版）
 - 仅本次运行生效，不写入存档
 
 ## 更新日志
+
+### v2.1.10 (2026-09-23)
+- 工程维护：定时器统一走页面基类管理，退出页面时自动清理（标题动画/保存提示/游戏循环），消除残留定时器
+- README 对齐实际实现：存档为应用级 KV 存储（jsapi.storage）、调试入口为「关于页按钮」、补全 build:simulator / preview 命令
+- 详见 CHANGELOG.md
 
 ### v2.1.9 (2026-09-23)
 - 关于页精简：移除敌人/陷阱/道具长列表，新增三区触控操作说明

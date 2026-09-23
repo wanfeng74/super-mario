@@ -235,9 +235,9 @@ export default {
       loadSlots().then(function (slots) {
         self.slots = slots
       })
-      // 标题背景动画
-      if (this._titleTimer) clearInterval(this._titleTimer)
-      this._titleTimer = setInterval(function () {
+      // 标题背景动画 (走 base-page 统一定时器, onUnload 时自动释放)
+      if (this._titleTimer) this.clearInterval(this._titleTimer)
+      this._titleTimer = this.setInterval(function () {
         if (self.screen !== 'title') return
         self.titleTick()
       }, 100)
@@ -245,8 +245,8 @@ export default {
 
     startTitleAnim() {
       var self = this
-      if (this._titleTimer) clearInterval(this._titleTimer)
-      this._titleTimer = setInterval(function () {
+      if (this._titleTimer) this.clearInterval(this._titleTimer)
+      this._titleTimer = this.setInterval(function () {
         if (self.screen !== 'title') return
         self.titleTick()
       }, 100)
@@ -321,8 +321,8 @@ export default {
       saveSlot(this.curSlot, this._game.getState()).then(function (ok) {
         self.persistOk = ok
         self.saveMsg = ok ? ' ✓已保存' : ' ✗保存失败'
-        if (self._saveMsgTimer) clearTimeout(self._saveMsgTimer)
-        self._saveMsgTimer = setTimeout(function () {
+        if (self._saveMsgTimer) self.clearTimeout(self._saveMsgTimer)
+        self._saveMsgTimer = self.setTimeout(function () {
           self.saveMsg = ''
         }, 1500)
       })
@@ -404,7 +404,7 @@ export default {
       if (this._loopToken != null) return
       var self = this
       this._lastTs = Date.now()
-      this._loopToken = setInterval(function () {
+      this._loopToken = this.setInterval(function () {
         var now = Date.now()
         var dt = now - self._lastTs
         self._lastTs = now
@@ -418,7 +418,7 @@ export default {
     },
     stopLoop() {
       if (this._loopToken != null) {
-        clearInterval(this._loopToken)
+        this.clearInterval(this._loopToken)
         this._loopToken = null
       }
     },

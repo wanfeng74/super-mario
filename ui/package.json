@@ -1,7 +1,7 @@
 {
   "name": "super-mario",
   "appid": "8001865309000002",
-  "version": "2.1.9",
+  "version": "2.1.10",
   "description": "超级马里奥 (Super Mario) 横版卷轴平台跳跃游戏 for 有道词典笔 960x266 横条屏",
   "icon": "icon.png",
   "quickjs": {
@@ -12,6 +12,8 @@
   "scripts": {
     "build": "aiot-cli -p",
     "build:dev": "aiot-cli",
+    "build:simulator": "aiot-cli simulator",
+    "preview": "aiot-cli preview",
     "package": "aiot-cli -c -q -p"
   },
   "keywords": [
