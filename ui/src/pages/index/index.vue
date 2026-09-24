@@ -5,7 +5,6 @@
       class="game-canvas"
       :width="canvasW"
       :height="canvasH"
-      :style="{ width: '960px', height: '266px' }"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
@@ -118,7 +117,6 @@
 
     <!-- ===== 游戏结束 ===== -->
     <div class="title-layer" v-if="screen === 'gameover'">
-      <text class="pause-title">GAME OVER</text>
       <text class="tip">最终分数 {{ gameState.score }} · 金币 x{{ gameState.coins }}</text>
       <div class="slot" @touchstart="backTitle">
         <text class="slot-title">返回标题</text>
@@ -131,6 +129,8 @@
 import { createGame } from '../../services/game/engine.js'
 import { loadSlots, loadSlot, saveSlot, clearSlot, persistAvailable } from '../../services/save.js'
 import { APP_VERSION } from '../../services/version.js'
+import { BUILD_TARGET } from '../../services/build-target.js'
+import { logicalHeightForPhysical } from '../../screen-profile.js'
 
 export default {
   name: 'index',
@@ -152,8 +152,54 @@ export default {
     }
   },
   methods: {
+    /* ---- 读物理分辨率: rk 用 window, cvi 用 $falcon.env ---- */
+    readPhysicalSize() {
+      var vw = 960, vh = 266
+      if (BUILD_TARGET === 'cvi') {
+        try {
+          if (typeof $falcon !== 'undefined' && $falcon.env) {
+            vw = $falcon.env.deviceWidth || vw
+            vh = $falcon.env.deviceHeight || vh
+          }
+        } catch (e) {}
+      } else {
+        try {
+          if (typeof window !== 'undefined') {
+            vw = window.innerWidth || vw
+            vh = window.innerHeight || vh
+          }
+        } catch (e) {}
+      }
+      if ((!vw || vw <= 0) && typeof document !== 'undefined' && document.documentElement) {
+        vw = document.documentElement.clientWidth || vw
+      }
+      if ((!vh || vh <= 0) && typeof document !== 'undefined' && document.documentElement) {
+        vh = document.documentElement.clientHeight || vh
+      }
+      return { w: vw, h: vh }
+    },
+
+    /* ---- 适配: canvas 缓冲区 = 物理分辨率, 逻辑高度按比例, 多出的当天空 ---- */
+    applyScreen() {
+      var p = this.readPhysicalSize()
+      this.canvasW = p.w
+      this.canvasH = p.h
+      var logicalH = logicalHeightForPhysical(p.w, p.h)
+      /* 把逻辑高度传给引擎: 地面锚定底部, 顶部多出的高度当天空 */
+      if (this._game && typeof this._game.setLogicalHeight === 'function') {
+        this._game.setLogicalHeight(logicalH)
+      }
+      this._logicalH = logicalH
+    },
     /* ---- 页面生命周期 (falcon) ---- */
     onShow() {
+      this.applyScreen()
+      if (typeof window !== 'undefined' && window.addEventListener && !this._resizeHandler) {
+        var self = this
+        this._resizeHandler = function () { self.applyScreen() }
+        window.addEventListener('resize', this._resizeHandler)
+        window.addEventListener('orientationchange', this._resizeHandler)
+      }
       if (this._started) {
         // 从后台回来: 游戏进行中则恢复循环
         if (this.screen === 'game' && this._game) this.startLoop()
@@ -172,6 +218,13 @@ export default {
       if (this._titleTimer) { clearInterval(this._titleTimer); this._titleTimer = null }
       if (this._saveMsgTimer) { clearTimeout(this._saveMsgTimer); this._saveMsgTimer = null }
       this.autoSave()
+      if (typeof window !== 'undefined' && window.removeEventListener && this._resizeHandler) {
+        try {
+          window.removeEventListener('resize', this._resizeHandler)
+          window.removeEventListener('orientationchange', this._resizeHandler)
+        } catch (e) {}
+        this._resizeHandler = null
+      }
       if (this._keyDown) {
         try {
           if (typeof window !== 'undefined' && window.removeEventListener) {
@@ -184,12 +237,6 @@ export default {
 
     /* ---- 初始化 ---- */
     initGame() {
-      /* 多分辨率: canvas 物理缓冲区跟随设备分辨率, CSS 保持 960x266 逻辑尺寸 */
-      try {
-        var dw = ($falcon.env && $falcon.env.deviceWidth) || 960
-        var dh = ($falcon.env && $falcon.env.deviceHeight) || 266
-        if (dw > 0 && dh > 0) { this.canvasW = dw; this.canvasH = dh }
-      } catch (e) {}
       var canvas = this.$refs.game
       var ctx = null
       try {
@@ -210,6 +257,15 @@ export default {
         onGameOver: (st) => {
           this.gameState = st
           this.screen = 'gameover'
+          /* gameover 自动删除当前存档 */
+          var idx = this.curSlot
+          var self = this
+          if (idx >= 0) {
+            this.curSlot = -1
+            clearSlot(idx).then(function () {
+              if (self.refreshSlots) self.refreshSlots()
+            })
+          }
         },
       })
       // 预览调试暴露 (真机 window 为空对象, 赋值无害)
@@ -502,6 +558,7 @@ export default {
       var x = t.clientX != null ? t.clientX : t.pageX != null ? t.pageX : t.x
       var y = t.clientY != null ? t.clientY : t.pageY != null ? t.pageY : t.y
       if (x == null || y == null) return null
+      /* setViewPort(960) 后触摸坐标已是 960 逻辑坐标系, 直接用 */
       return { x: x, y: y }
     },
     /* 预览器/部分环境鼠标事件兜底: 统一转成触摸处理 */
@@ -558,23 +615,22 @@ export default {
 <style scoped>
 .wrapper {
   position: relative;
-  width: 100%;
+  width: 960px;
   height: 100%;
   background-color: #000000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .game-canvas {
   position: relative;
+  width: 960px;
+  height: 100%;
 }
 
 .title-layer {
   position: absolute;
-  left: 50%;
+  left: 0;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   width: 960px;
   height: 266px;
   flex-direction: column;

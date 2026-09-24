@@ -2039,18 +2039,21 @@ Game.prototype.updateEnemies = function (dt) {
       keep.push(e)
       continue
     }
+    /* 本帧是否实际在向下移动: movePlayerY 落地后会把 p.vy 归零,
+       不能只看 p.vy>0, 否则玩家落到地面瞬间蹭到怪会判定成侧面碰撞而伤血 */
+    var fallingDown = (p.y + p.h) > this.playerBottomPrev
     if (rectsHit(p.x, p.y, p.w, p.h, e.x, e.y, e.w, e.h)) {
       if (p.starTimer > 0) {
         e.alive = false
         e.squashed = true
         e.squashT = 0.5
         this.score += 200
-      } else if (e.kind === 'spiny' || e.kind === 'piranha' || e.kind === 'podoboo' || e.kind === 'lavaFireball' || e.kind === 'blooper' || e.kind === 'cheep' || e.kind === 'firebar' || (e.kind === 'hammer' && e.isProjectile)) {
+      } else if (e.kind === 'spiny' || e.kind === 'piranha' || e.kind === 'podoboo' || e.kind === 'lavaFireball' || e.kind === 'blooper' || e.kind === 'cheep' || e.kind === 'firebar' || e.kind === 'bulletbill' || (e.kind === 'hammer' && e.isProjectile)) {
         /* 不能踩的敌人 */
         if (this.invuln <= 0) this.hurtPlayer()
       } else if (e.kind === 'paratroopa_g' || e.kind === 'paratroopa_r') {
         /* 飞龟: 下落中踩一下变普通龟 (原版: stomp -> turns into a normal Koopa) */
-        var stompingPT = p.vy > 0 && ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))
+        var stompingPT = fallingDown && ((p.y + p.h <= e.y + e.h * 0.65) || (this.playerBottomPrev <= e.y + e.h * 0.65 && p.y + p.h > e.y))
         if (stompingPT) {
           e.kind = e.kind === 'paratroopa_r' ? 'redkoopa' : 'koopa'
           e.shell = 0
@@ -2063,7 +2066,7 @@ Game.prototype.updateEnemies = function (dt) {
           p.vy = STOMP_V
           p.onGround = false
           this.score += 200
-        } else if (p.y + p.h <= e.y + e.h * 0.5) {
+        } else if (p.y + p.h <= e.y + e.h * 0.65) {
           /* 玩家在飞龟上方但未下落: 不交互 */
         } else if (this.invuln <= 0) {
           this.hurtPlayer()
@@ -2075,8 +2078,8 @@ Game.prototype.updateEnemies = function (dt) {
            shell=0 行走; 踩一下 -> shell=1 缩壳静止(13秒后钻出), 玩家弹起;
            弹起落回再踩到静止壳 -> 踢出 shell=2 滑行 (原版连招: 落回即踢, 无防误触锁);
            踩滑行壳 -> 停回 shell=1; 侧面碰静止壳 -> 踢出; 滑行壳碰玩家 -> 受伤 */
-        var aboveK = p.y + p.h <= e.y + e.h * 0.5
-        var stompingK = p.vy > 0 && (aboveK || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))
+        var aboveK = p.y + p.h <= e.y + e.h * 0.65
+        var stompingK = fallingDown && (aboveK || (this.playerBottomPrev <= e.y + e.h * 0.65 && p.y + p.h > e.y))
         if (stompingK) {
           if (e.shell === 2) {
             /* 踩滑动的壳: 停下 (原版: A shell in motion can be stopped by stomping on it) */
@@ -2123,7 +2126,7 @@ Game.prototype.updateEnemies = function (dt) {
           keep.push(e)
           continue
         }
-      } else if (p.vy > 0 && ((p.y + p.h <= e.y + e.h * 0.5) || (this.playerBottomPrev <= e.y + e.h * 0.5 && p.y + p.h > e.y))) {
+      } else if (fallingDown && ((p.y + p.h <= e.y + e.h * 0.65) || (this.playerBottomPrev <= e.y + e.h * 0.65 && p.y + p.h > e.y))) {
         /* 踩怪 (原版 SMB: 下落中 vy>0 且玩家脚在敌人垂直中点之上; 高速下落隧穿时上一帧底部在中点之上也算踩.
            必须下落中才可踩: 水平走过/上升中碰到不击杀, 避免"水平走过了才触发") */
         e.alive = false
@@ -2134,7 +2137,7 @@ Game.prototype.updateEnemies = function (dt) {
         p.vy = STOMP_V
         p.onGround = false
         this.score += 100
-      } else if (p.y + p.h <= e.y + e.h * 0.5) {
+      } else if (p.y + p.h <= e.y + e.h * 0.65) {
         /* 玩家在敌人上方但未下落 (站砖块/平台上水平经过): 不踩不伤 (原版 y 不重叠不碰撞) */
       } else if (this.invuln <= 0) {
         this.hurtPlayer()
@@ -2393,6 +2396,11 @@ Game.prototype.updateItems = function (dt) {
       var en = this.enemies[n]
       if (!en.alive) continue
       if (rectsHit(f.x, f.y, f.w, f.h, en.x, en.y, en.w, en.h)) {
+        /* buzzy 硬壳虫原版火免疫: 火球反弹消失, 不击杀 */
+        if (en.kind === 'buzzy') {
+          f.alive = false
+          break
+        }
         en.alive = false
         en.squashed = true
         en.squashT = 0.4
@@ -2679,15 +2687,17 @@ Game.prototype.tick = function (dtMs) {
 Game.prototype.render = function () {
   var ctx = this.ctx
   var cam = Math.round(this.camX)
-  /* 多分辨率 letterbox: canvas 物理尺寸铺满屏幕, 等比缩放居中, clip 防止溢出到黑边 */
+  /* 多分辨率: canvas 缓冲区=物理分辨率, 按宽度等比缩放, 游戏内容锚定底部,
+     顶部多出的高度当天空 (参考 hill-climb: 宽度铺满, 高度自适应) */
   var cw = ctx.canvas ? ctx.canvas.width : VIEW_W
   var ch = ctx.canvas ? ctx.canvas.height : VIEW_H
   var sc = cw / VIEW_W
-  var offY = (ch - VIEW_H * sc) / 2
+  var offY = ch - VIEW_H * sc
+  if (offY < 0) offY = 0
   this.viewSc = sc
   this.viewOffY = offY
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.fillStyle = '#000000'
+  ctx.fillStyle = '#6cb8f8'
   ctx.fillRect(0, 0, cw, ch)
   ctx.setTransform(sc, 0, 0, sc, 0, offY)
   ctx.save()
@@ -2772,8 +2782,11 @@ Game.prototype.render = function () {
       /* 火焰棒: 原版直棒 (火球沿直线排列, 绕轴旋转, 碰到任意一段都受伤) */
       var cx = e.x - cam + e.w / 2
       var cy = e.y + e.h / 2
-      /* 原版中心大火球 (16x16 -> 1.5x = 24x24, 与瓦片同尺寸居中) */
-      drawSprite(ctx, SPR_FIREBAR_HUB, 1.5, e.x - cam, e.y, false)
+      /* 中心轴: 与周围火球同款画法 (橙红外圈+黄心), 避免 1.5x 非整数缩放像素图出条纹 */
+      ctx.fillStyle = '#ff3300'
+      ctx.fillRect(cx - 6, cy - 6, 12, 12)
+      ctx.fillStyle = '#ffcc00'
+      ctx.fillRect(cx - 4, cy - 4, 8, 8)
       for (var fi = 0; fi < e.len; fi++) {
         var fa = e.angle
         var fx = cx + Math.cos(fa) * (fi + 1) * TILE * 0.5
@@ -3432,6 +3445,16 @@ Game.prototype.renderOverlay = function (ctx) {
 
 Game.prototype.renderTitle = function (levelText) {
   var ctx = this.ctx
+  /* 和 render() 一致的多分辨率变换: 按宽度缩放, 锚底 */
+  var cw = ctx.canvas ? ctx.canvas.width : VIEW_W
+  var ch = ctx.canvas ? ctx.canvas.height : VIEW_H
+  var sc = cw / VIEW_W
+  var offY = ch - VIEW_H * sc
+  if (offY < 0) offY = 0
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.fillStyle = '#6cb8f8'
+  ctx.fillRect(0, 0, cw, ch)
+  ctx.setTransform(sc, 0, 0, sc, 0, offY)
   /* 标题静态层 (天空+地面条+文字+角色) 预渲染, 每帧只重画滚动背景山 (animT 缓慢滚动) */
   var s = this._titleStaticCache
   if (!s) {
@@ -3501,6 +3524,9 @@ function pad6(n) {
   while (s.length < 6) s = '0' + s
   return s
 }
+
+/* 预留接口: 外部传入逻辑高度 (当前实现: 地面锚底, 顶部天空自动延展, 无需改引擎内部坐标) */
+Game.prototype.setLogicalHeight = function (h) { this._logicalH = h }
 
 export function createGame(ctx, hooks) {
   return new Game(ctx, hooks)
