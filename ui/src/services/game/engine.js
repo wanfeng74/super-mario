@@ -2679,6 +2679,21 @@ Game.prototype.tick = function (dtMs) {
 Game.prototype.render = function () {
   var ctx = this.ctx
   var cam = Math.round(this.camX)
+  /* 多分辨率 letterbox: canvas 物理尺寸铺满屏幕, 等比缩放居中, clip 防止溢出到黑边 */
+  var cw = ctx.canvas ? ctx.canvas.width : VIEW_W
+  var ch = ctx.canvas ? ctx.canvas.height : VIEW_H
+  var sc = cw / VIEW_W
+  var offY = (ch - VIEW_H * sc) / 2
+  this.viewSc = sc
+  this.viewOffY = offY
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, cw, ch)
+  ctx.setTransform(sc, 0, 0, sc, 0, offY)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, 0, VIEW_W, VIEW_H)
+  ctx.clip()
   /* 城堡/地下背景底色由 renderBackdrop 负责 (避免双重全屏填充 Overdraw); 地面主题直接填天空 */
   if (this.theme !== 'castle' && this.theme !== 'underground') {
     ctx.fillStyle = C_SKY
@@ -2835,6 +2850,7 @@ Game.prototype.render = function () {
   if (this.state !== 'idle') this.renderHUD(ctx)
   this.renderControls(ctx)
   this.renderOverlay(ctx)
+  ctx.restore()
 }
 
 Game.prototype.renderBackdrop = function (ctx, cam) {

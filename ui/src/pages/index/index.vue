@@ -3,8 +3,8 @@
     <canvas
       ref="game"
       class="game-canvas"
-      :width="960"
-      :height="266"
+      :width="canvasW"
+      :height="canvasH"
       :style="{ width: '960px', height: '266px' }"
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
@@ -146,6 +146,8 @@ export default {
       debugLevel: 1,
       debugStar: false,
       debugGroundTile: false,
+      canvasW: 960,
+      canvasH: 266,
       gameState: { level: 1, score: 0, coins: 0, lives: 3, time: 300, power: 'small' },
     }
   },
@@ -182,6 +184,12 @@ export default {
 
     /* ---- 初始化 ---- */
     initGame() {
+      /* 多分辨率: canvas 物理缓冲区跟随设备分辨率, CSS 保持 960x266 逻辑尺寸 */
+      try {
+        var dw = ($falcon.env && $falcon.env.deviceWidth) || 960
+        var dh = ($falcon.env && $falcon.env.deviceHeight) || 266
+        if (dw > 0 && dh > 0) { this.canvasW = dw; this.canvasH = dh }
+      } catch (e) {}
       var canvas = this.$refs.game
       var ctx = null
       try {
@@ -550,21 +558,23 @@ export default {
 <style scoped>
 .wrapper {
   position: relative;
-  width: 960px;
-  height: 266px;
-  background-color: #6cb8f8;
+  width: 100%;
+  height: 100%;
+  background-color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .game-canvas {
-  position: absolute;
-  left: 0;
-  top: 0;
+  position: relative;
 }
 
 .title-layer {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 960px;
   height: 266px;
   flex-direction: column;
