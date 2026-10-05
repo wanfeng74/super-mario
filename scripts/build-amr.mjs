@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * 双平台打包脚本: rk (瑞芯微 aarch64 / panet.so) + cvi (cvitek arm32 / bridge.so)
+ * 双平台打包脚本: rk (瑞芯微 aarch64 / panet.so) + cvia (晶晨 arm32 / bridge.so, 适配 cvis/s7/x5)
  * 用法: node scripts/build-amr.mjs
- * 产物: rk/  和  cvi/
+ * 产物: rk/  和  cvia/
+ * appid 统一为 BASE_APPID (与 Pencraft 等多机型应用一致, 同一 appid 适配多机型)
  */
 import { execSync } from 'child_process'
-import { copyFileSync, existsSync, renameSync, readdirSync, unlinkSync, writeFileSync, readFileSync } from 'fs'
+import { copyFileSync, existsSync, renameSync, readdirSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
 import { join, basename } from 'path'
 
 const UI = join(process.cwd(), 'ui')
@@ -17,13 +18,13 @@ const TARGET_FILE = join(UI, 'src/services/build-target.js')
 const PKG_JSON = join(UI, 'package.json')
 const VERSION_JS = join(UI, 'src/services/version.js')
 const BASE_APPID = '8001865309000002'
-const CVI_APPID = '8001865309000003'
+/* cvia 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法), 适配 cvis/s7/x5 */
 
 function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
-   rk  = 瑞芯微 aarch64, 缩放基准用 vh (window.innerHeight)
-   cvi = 晶晨 arm32,    缩放基准用 dh ($falcon.env.deviceHeight) */
+   rk   = 瑞芯微 aarch64, 缩放基准用 vh (window.innerHeight)
+   cvia = 晶晨 arm32 (适配 cvis/s7/x5), 缩放基准用 dh ($falcon.env.deviceHeight) */
 export const BUILD_TARGET = '${t}'\n`)
 }
 
@@ -68,10 +69,10 @@ function buildRk() {
   console.log('->', out)
 }
 
-function buildCvi() {
-  console.log('\n=== 打包 cvi 版 (cvitek arm32 / bridge.so, dh 缩放, appid+1) ===')
-  setTarget('cvi')
-  setAppid(CVI_APPID)
+function buildCvia() {
+  console.log('\n=== 打包 cvia 版 (晶晨 arm32 / bridge.so, dh 缩放, 适配 cvis/s7/x5, appid 与 rk 一致) ===')
+  setTarget('cvia')
+  /* appid 保持 BASE_APPID (与 rk 一致, 参考 Pencraft 多机型单 appid) */
   renameSync(PANET, PANET + '.bak')
   copyFileSync(BRIDGE_SRC, BRIDGE)
   try {
@@ -80,14 +81,14 @@ function buildCvi() {
   } finally {
     renameSync(BRIDGE, BRIDGE + '.bak2')
     renameSync(PANET + '.bak', PANET)
-    setAppid(BASE_APPID)
   }
   const amr = findAmr()
-  const out = join(process.cwd(), 'cvi', basename(amr).replace('.amr', '-cvi.amr'))
+  mkdirSync(join(process.cwd(), 'cvia'), { recursive: true })
+  const out = join(process.cwd(), 'cvia', basename(amr).replace('.amr', '-cvia.amr'))
   copyFileSync(amr, out)
   console.log('->', out)
 }
 
 buildRk()
-buildCvi()
-console.log('\n完成: rk/ 与 cvi/ 产物已更新')
+buildCvia()
+console.log('\n完成: rk/ 与 cvia/ 产物已更新')

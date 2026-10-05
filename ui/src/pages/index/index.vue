@@ -152,10 +152,10 @@ export default {
     }
   },
   methods: {
-    /* ---- 读物理分辨率: rk 用 window, cvi 用 $falcon.env ---- */
+    /* ---- 读物理分辨率: rk 用 window, cvia 用 $falcon.env ---- */
     readPhysicalSize() {
       var vw = 960, vh = 266
-      if (BUILD_TARGET === 'cvi') {
+      if (BUILD_TARGET === 'cvia') {
         try {
           if (typeof $falcon !== 'undefined' && $falcon.env) {
             vw = $falcon.env.deviceWidth || vw
@@ -386,7 +386,7 @@ export default {
       var self = this
       saveSlot(this.curSlot, this._game.getState()).then(function (ok) {
         self.persistOk = ok
-        self.saveMsg = ok ? ' ✓已保存' : ' ✗保存失败'
+        self.saveMsg = ok ? ' 已保存' : ' 保存失败'
         if (self._saveMsgTimer) clearTimeout(self._saveMsgTimer)
         self._saveMsgTimer = setTimeout(function () {
           self.saveMsg = ''
