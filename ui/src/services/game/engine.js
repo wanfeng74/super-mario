@@ -1157,9 +1157,46 @@ function Game(ctx, hooks) {
   this._bgCloudCache = null
   this._hudStaticCache = null
   this._titleStaticCache = null
+  /* 地面贴图条带缓存 (参考 Pencraft terrain 缓存思路): 无大离屏 canvas 时静态层每帧重绘,
+     8 瓦片宽 GROUND 条带让地面平铺 blit 次数降 ~8 倍 */
+  this._groundStripeCache = null
   /* 当前 fillStyle 去重缓存 (参考 Pencraft rect(): 同色不重复写 fillStyle) */
   this._fill = ''
   this.reset()
+}
+
+/* 地面贴图条带: 预渲染 8 瓦片(192px)宽 × 1 瓦片(24px)高的 GROUND 贴图横向条带.
+   地面块按条带平铺, 一次 drawImage 覆盖 8 瓦片 (替代 8 次单瓦片 blit).
+   小 canvas (192x24) 在 falcon 上远比整屏 1008x266 缓存容易创建成功 */
+Game.prototype._groundStripe = function (themeCM) {
+  var key = this.theme
+  if (this._groundStripeCache && this._groundStripeCache.key === key) return this._groundStripeCache
+  var W = TILE * 8
+  var c = ensureCanvas(W, TILE)
+  var out = null
+  if (c) {
+    var cc = c.getContext('2d')
+    var blocks = spriteRectBlocks(GROUND)
+    for (var b = 0; b < blocks.length; b++) {
+      var bl = blocks[b]
+      var ch = bl[4]
+      if (ch === '.' || ch === ' ') continue
+      var color = SPRITE_MAP[ch]
+      if (!color) continue
+      if (themeCM) {
+        var rep = themeCM[color]
+        if (rep) color = rep
+      }
+      cc.fillStyle = color
+      /* 横向平铺 8 个瓦片 (贴图字符坐标 × SPR_SCALE 2) */
+      for (var tx = 0; tx < W; tx += TILE) {
+        cc.fillRect(tx + bl[0] * 2, bl[1] * 2, bl[2] * 2, bl[3] * 2)
+      }
+    }
+    out = { canvas: c, key: key, w: W }
+  }
+  this._groundStripeCache = out
+  return out
 }
 
 /* 绘制封装: fillStyle 去重 (颜色变化才写属性) + 坐标整数化 + 空矩形短路.
@@ -3246,9 +3283,28 @@ Game.prototype._renderStaticTiles = function (ctx, scx, themeCM) {
     if (t.type === 'ground') {
       /* 地面渲染: 默认纯色填充(性能最优, 词典笔软件渲染扛不住贴图平铺); 调试开关可切回原版贴图平铺 */
       if (this.groundTile) {
-        for (var ggy = 0; ggy < t.h; ggy += TILE) {
-          for (var ggx = 0; ggx < t.w; ggx += TILE) {
-            drawSprite(ctx, GROUND, undefined, sx + ggx, t.y + ggy, false, themeCM)
+        /* 贴图模式: 优先用 8 瓦片条带缓存平铺 (1 次 drawImage 覆盖 8 瓦片,
+           替代 8 次单瓦片 blit — 无大离屏 canvas 时每帧全量重绘的大头) */
+        var st = this._groundStripe(themeCM)
+        if (st) {
+          for (var gy2 = 0; gy2 < t.h; gy2 += TILE) {
+            var gx2 = 0
+            while (gx2 + st.w <= t.w) {
+              ctx.drawImage(st.canvas, sx + gx2, t.y + gy2)
+              gx2 += st.w
+            }
+            /* 尾部不足一条: 剩余瓦片单瓦片平铺 */
+            if (gx2 < t.w) {
+              for (var gxr = gx2; gxr < t.w; gxr += TILE) {
+                drawSprite(ctx, GROUND, undefined, sx + gxr, t.y + gy2, false, themeCM)
+              }
+            }
+          }
+        } else {
+          for (var ggy = 0; ggy < t.h; ggy += TILE) {
+            for (var ggx = 0; ggx < t.w; ggx += TILE) {
+              drawSprite(ctx, GROUND, undefined, sx + ggx, t.y + ggy, false, themeCM)
+            }
           }
         }
       } else {
