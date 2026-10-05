@@ -1,5 +1,14 @@
 # 更新日志
 
+## v2.2.6 (2026-10-06)
+
+### A6pro (cvia) 适配完成，三平台整盒齐
+- 找到并落地 RV1106 开源工具链：Luckfox Pico SDK（github.com/LuckfoxTECH/luckfox-pico）自带 `arm-rockchip830-linux-uclibcgnueabihf`（GCC 8.3 / ARMv7 hard-float / uClibc），与现有库形态同型
+- 用 skill 自带 iot-miniapp-sdk 模板交叉编译最小兼容库 `libjsapi_bridge.so`（ELF32 ARM EABI5 hard-float，依赖 libc.so.0），产物落 `ui/libs-rv1106/`
+- 新增 cvia 打包分支（buildCvia），`cvia/8001865309000002.2_2_6-cvia.amr` 覆盖 **A6pro（Rockchip RV1106）**
+- **三包齐**：rk（aarch64/panet.so）+ cvis（CV1826 arm32/bridge.so）+ cvia（RV1106 arm32/bridge.so），同一 appid 8001865309000002
+- 说明：cvia 库为模板编译的最小加载库（游戏 JS 不依赖 native 能力，存档走 `$falcon.jsapi.storage`），A6pro 真机加载验证待固件侧确认
+
 ## v2.2.5 (2026-10-06)
 
 ### 全型号整盒打包 (依据 dictpen-rootfs 设备树映射表)

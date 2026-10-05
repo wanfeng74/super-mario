@@ -3,9 +3,10 @@
  * 整盒多平台打包脚本 (依据 dictpen-rootfs 设备树映射表):
  *   rk   = RK 平台 (瑞芯微 aarch64 / panet.so): 覆盖 RK3566(X3s/X6plus/P5/X5Pro) + RK3562(X7) + RK3326(X6plus)
  *   cvis = Cvitek 平台 (CV1826 arm32 / bridge.so): 覆盖 S7pro/S6pro 等 CV 系机型
- *   cvia = A6pro (Rockchip RV1106 arm32) 预留: 需 RV1106 工具链编译的 native 库 (暂未提供)
+ *   cvia = A6pro (Rockchip RV1106 arm32 / bridge.so): 用 RV1106 工具链 (arm-rockchip830-linux-uclibcgnueabihf,
+ *          开源源 Luckfox Pico SDK) + iot-miniapp-sdk 模板编译的最小兼容库, 产物放 ui/libs-rv1106/
  * 用法: node scripts/build-amr.mjs
- * 产物: rk/  和  cvis/
+ * 产物: rk/  cvis/  cvia/
  * appid 统一为 BASE_APPID (参考 Pencraft 多机型单 appid 做法, 同一 appid 适配多平台)
  */
 import { execSync } from 'child_process'
@@ -17,6 +18,7 @@ const LIBS = join(UI, 'libs')
 const PANET = join(LIBS, 'libjsapi_panet.so')
 const BRIDGE = join(LIBS, 'libjsapi_bridge.so')
 const BRIDGE_SRC = join(UI, 'libs-cvi', 'libjsapi_bridge.so')
+const BRIDGE_SRC_RV = join(UI, 'libs-rv1106', 'libjsapi_bridge.so')
 const TARGET_FILE = join(UI, 'src/services/build-target.js')
 const PKG_JSON = join(UI, 'package.json')
 const VERSION_JS = join(UI, 'src/services/version.js')
@@ -32,7 +34,8 @@ function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
    rk   = 瑞芯微 aarch64 (RK 平台: X3s/X6plus/P5/X5Pro/X7), 缩放基准用 vh (window.innerHeight)
-   cvis = Cvitek arm32 (CV1826 平台: S7pro/S6pro 等), 缩放基准用 dh ($falcon.env.deviceHeight) */
+   cvis = Cvitek arm32 (CV1826 平台: S7pro/S6pro 等), 缩放基准用 dh ($falcon.env.deviceHeight)
+   cvia = A6pro (Rockchip RV1106 arm32), 缩放基准用 dh ($falcon.env.deviceHeight) */
 export const BUILD_TARGET = '${t}'\n`)
 }
 
@@ -110,6 +113,29 @@ function buildCvis() {
   console.log('->', out)
 }
 
+function buildCvia() {
+  console.log('\n=== 打包 cvia 版 (A6pro / Rockchip RV1106 arm32 / bridge.so, dh 缩放, appid 与 rk 一致) ===')
+  setTarget('cvia')
+  cleanLibBaks()
+  /* appid 保持 BASE_APPID (与 rk 一致) */
+  renameSync(PANET, PANET_BAK)
+  copyFileSync(BRIDGE_SRC_RV, BRIDGE)
+  try {
+    cleanAmr()
+    sh('pnpm -C ui package')
+  } finally {
+    renameSync(BRIDGE, BRIDGE_BAK2)
+    renameSync(PANET_BAK, PANET)
+    if (existsSync(BRIDGE_BAK2)) unlinkSync(BRIDGE_BAK2)
+  }
+  const amr = findAmr()
+  mkdirSync(join(process.cwd(), 'cvia'), { recursive: true })
+  const out = join(process.cwd(), 'cvia', basename(amr).replace('.amr', '-cvia.amr'))
+  copyFileSync(amr, out)
+  console.log('->', out)
+}
+
 buildRk()
 buildCvis()
-console.log('\n完成: rk/ 与 cvis/ 产物已更新')
+buildCvia()
+console.log('\n完成: rk/  cvis/  cvia/ 产物已更新')

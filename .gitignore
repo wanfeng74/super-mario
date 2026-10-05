@@ -2,9 +2,10 @@ node_modules/
 .falcon_/
 syncheck/
 *.amr
-# 产物统一放 rk/ (瑞芯微 aarch64) 和 cvis/ (Cvitek arm32)
+# 产物统一放 rk/ (瑞芯微 aarch64)、cvis/ (Cvitek arm32)、cvia/ (A6pro RV1106 arm32)
 !rk/*.amr
 !cvis/*.amr
+!cvia/*.amr
 amr-inspect/
 dl/
 *.png
