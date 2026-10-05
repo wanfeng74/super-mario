@@ -2,9 +2,9 @@ node_modules/
 .falcon_/
 syncheck/
 *.amr
-# 产物统一放 rk/ (瑞芯微 aarch64) 和 cvia/ (晶晨 arm32, 适配 cvis/s7/x5)
+# 产物统一放 rk/ (瑞芯微 aarch64) 和 cvis/ (Cvitek arm32)
 !rk/*.amr
-!cvia/*.amr
+!cvis/*.amr
 amr-inspect/
 dl/
 *.png
@@ -20,6 +20,5 @@ build/
 
 # 本地测试脚本 (不随仓库发布)
 test/
-*.bak
-*.bak
+*.bak*
 *.v2110bak

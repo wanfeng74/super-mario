@@ -152,10 +152,10 @@ export default {
     }
   },
   methods: {
-    /* ---- 读物理分辨率: rk 用 window, cvia 用 $falcon.env ---- */
+    /* ---- 读物理分辨率: rk 用 window, cvis 用 $falcon.env ---- */
     readPhysicalSize() {
       var vw = 960, vh = 266
-      if (BUILD_TARGET === 'cvia') {
+      if (BUILD_TARGET === 'cvis') {
         try {
           if (typeof $falcon !== 'undefined' && $falcon.env) {
             vw = $falcon.env.deviceWidth || vw

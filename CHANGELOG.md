@@ -1,5 +1,14 @@
 # 更新日志
 
+## v2.2.5 (2026-10-06)
+
+### 全型号整盒打包 (依据 dictpen-rootfs 设备树映射表)
+- **rk 包**（瑞芯微 aarch64 / panet.so）覆盖全部 RK 平台市售型号：X3s、X6plus、P5、X5 Pro（RK3566）、X7（RK3562）、X6plus（RK3326）
+- **cvis 包**（Cvitek arm32 / bridge.so）覆盖全部 Cvitek 平台市售型号：S7pro、S6pro（CV1826）
+- 同一 appid 8001865309000002 适配多平台（参考 Pencraft）；两包 ABI 不同（arm32/aarch64），native 库不通用
+- **cvia 包预留**：A6pro（Rockchip RV1106，arm32 非 aarch64）需 RV1106 工具链编译的 native 库，工具链已确认 GitHub 上有开源，待编译后补齐
+- 打包脚本加固：换库临时文件移至项目根（ui/libs 外），打包前清理历史 .bak 残留，杜绝脏包
+
 ## v2.2.4 (2026-10-05)
 
 ### 上架新规合规

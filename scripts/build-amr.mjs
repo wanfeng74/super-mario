@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * 双平台打包脚本: rk (瑞芯微 aarch64 / panet.so, 覆盖 RK3566 平台: X5 Pro/X3s/X6plus/P5 等)
- *               + cvia (Cvitek arm32 / bridge.so, 覆盖 CV1826 平台: cvis/S7pro 等)
+ * 整盒多平台打包脚本 (依据 dictpen-rootfs 设备树映射表):
+ *   rk   = RK 平台 (瑞芯微 aarch64 / panet.so): 覆盖 RK3566(X3s/X6plus/P5/X5Pro) + RK3562(X7) + RK3326(X6plus)
+ *   cvis = Cvitek 平台 (CV1826 arm32 / bridge.so): 覆盖 S7pro/S6pro 等 CV 系机型
+ *   cvia = A6pro (Rockchip RV1106 arm32) 预留: 需 RV1106 工具链编译的 native 库 (暂未提供)
  * 用法: node scripts/build-amr.mjs
- * 产物: rk/  和  cvia/
+ * 产物: rk/  和  cvis/
  * appid 统一为 BASE_APPID (参考 Pencraft 多机型单 appid 做法, 同一 appid 适配多平台)
  */
 import { execSync } from 'child_process'
@@ -19,15 +21,18 @@ const TARGET_FILE = join(UI, 'src/services/build-target.js')
 const PKG_JSON = join(UI, 'package.json')
 const VERSION_JS = join(UI, 'src/services/version.js')
 const BASE_APPID = '8001865309000002'
-/* cvia 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法):
-   rk 包   = RK 平台 (aarch64/panet.so, 含 X5 Pro)
-   cvia 包 = Cvitek 平台 (arm32/bridge.so, 含 cvis/S7pro) */
+/* 临时换库用的 .bak 放项目根 (ui/libs 外), 避免残留进 AMR 包 */
+const PANET_BAK = join(process.cwd(), '.tmp-panet.so.bak')
+const BRIDGE_BAK2 = join(process.cwd(), '.tmp-bridge.so.bak')
+/* cvis 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法):
+   rk 包   = RK 平台 (aarch64/panet.so): X3s/X6plus/P5/X5Pro/X7
+   cvis 包 = Cvitek 平台 (arm32/bridge.so): S7pro/S6pro 等 */
 
 function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
-   rk   = 瑞芯微 aarch64 (RK 平台: X5 Pro/X3s/X6plus/P5 等), 缩放基准用 vh (window.innerHeight)
-   cvia = Cvitek arm32 (CV1826 平台: cvis/S7pro 等), 缩放基准用 dh ($falcon.env.deviceHeight) */
+   rk   = 瑞芯微 aarch64 (RK 平台: X3s/X6plus/P5/X5Pro/X7), 缩放基准用 vh (window.innerHeight)
+   cvis = Cvitek arm32 (CV1826 平台: S7pro/S6pro 等), 缩放基准用 dh ($falcon.env.deviceHeight) */
 export const BUILD_TARGET = '${t}'\n`)
 }
 
@@ -53,6 +58,15 @@ function cleanAmr() {
   }
 }
 
+/* 清理 ui/libs 里历史遗留的 .bak* 残留 (换库临时文件已移至项目根, 此处只删旧痕迹) */
+function cleanLibBaks() {
+  for (const f of readdirSync(LIBS)) {
+    if (f.includes('.bak')) {
+      try { unlinkSync(join(LIBS, f)) } catch (e) {}
+    }
+  }
+}
+
 function findAmr() {
   const files = readdirSync(UI).filter(f => f.endsWith('.amr'))
   if (!files.length) throw new Error('未找到打包产物 .amr')
@@ -62,7 +76,8 @@ function findAmr() {
 function buildRk() {
   console.log('\n=== 打包 rk 版 (aarch64 / panet.so, vh 缩放) ===')
   setTarget('rk')
-  if (existsSync(BRIDGE)) renameSync(BRIDGE, BRIDGE + '.bak')
+  cleanLibBaks()
+  if (existsSync(BRIDGE)) renameSync(BRIDGE, BRIDGE_BAK)
   if (!existsSync(PANET)) throw new Error('缺少 panet.so')
   cleanAmr()
   sh('pnpm -C ui package')
@@ -72,26 +87,29 @@ function buildRk() {
   console.log('->', out)
 }
 
-function buildCvia() {
-  console.log('\n=== 打包 cvia 版 (Cvitek arm32 / bridge.so, dh 缩放, 覆盖 CV1826 平台: cvis/S7pro, appid 与 rk 一致) ===')
-  setTarget('cvia')
+function buildCvis() {
+  console.log('\n=== 打包 cvis 版 (Cvitek arm32 / bridge.so, dh 缩放, 覆盖 CV1826 平台: S7pro/S6pro, appid 与 rk 一致) ===')
+  setTarget('cvis')
+  cleanLibBaks()
   /* appid 保持 BASE_APPID (与 rk 一致, 参考 Pencraft 多机型单 appid) */
-  renameSync(PANET, PANET + '.bak')
+  renameSync(PANET, PANET_BAK)
   copyFileSync(BRIDGE_SRC, BRIDGE)
   try {
     cleanAmr()
     sh('pnpm -C ui package')
   } finally {
-    renameSync(BRIDGE, BRIDGE + '.bak2')
-    renameSync(PANET + '.bak', PANET)
+    renameSync(BRIDGE, BRIDGE_BAK2)
+    renameSync(PANET_BAK, PANET)
+    /* 临时 .bak 移到 ui/libs 外, 避免残留进后续包 */
+    if (existsSync(BRIDGE_BAK2)) unlinkSync(BRIDGE_BAK2)
   }
   const amr = findAmr()
-  mkdirSync(join(process.cwd(), 'cvia'), { recursive: true })
-  const out = join(process.cwd(), 'cvia', basename(amr).replace('.amr', '-cvia.amr'))
+  mkdirSync(join(process.cwd(), 'cvis'), { recursive: true })
+  const out = join(process.cwd(), 'cvis', basename(amr).replace('.amr', '-cvis.amr'))
   copyFileSync(amr, out)
   console.log('->', out)
 }
 
 buildRk()
-buildCvia()
-console.log('\n完成: rk/ 与 cvia/ 产物已更新')
+buildCvis()
+console.log('\n完成: rk/ 与 cvis/ 产物已更新')
