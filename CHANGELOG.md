@@ -1,5 +1,19 @@
 # 更新日志
 
+## v2.2.2 (2026-10-05)
+
+### 渲染性能优化 (参考 Pencraft 性能方案)
+- 新增 `Game.prototype.rect()` 绘制封装：fillStyle 去重（同色不重复写属性）+ 坐标整数化，软件渲染下减少 fillStyle 属性写入
+- 特效图案预渲染为离屏 canvas 缓存，运行时一次 drawImage 替代每帧多次 fillRect/arc：
+  - 金币/金币弹出：arc+fill → 缓存画布 drawImage
+  - 火球（火焰形态）：2 次 fillRect → 1 次 drawImage
+  - 岩浆火球：3 次 fillRect → 1 次 drawImage
+  - 火焰棒：中心轴 2 次 + 每段 2 次 fillRect → 各 1 次 drawImage（旋转段循环只 drawImage）
+  - 抛出锤子：3 次 fillRect → 1 次 drawImage
+  - 砖块碎片/岩浆火花粒子：2 次 fillRect → 1 次 drawImage
+- 缓存不可用时保留原逐帧绘制降级路径（与既有离屏缓存降级策略一致）
+- 实测（固定相机热路径基准）：城堡关每帧 fillRect 调用 39.5 → 19.0（-52%），drawImage 5 → 14
+
 ## v2.1.19 (2026-09-24)
 
 ### 多分辨率 letterbox + 黑边刷怪修复

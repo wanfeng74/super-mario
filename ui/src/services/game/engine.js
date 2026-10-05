@@ -949,6 +949,92 @@ function ensureCanvas(w, h) {
   return null
 }
 
+/* ---- 特效离屏缓存 (参考 Pencraft TextureRenderer 思路: 固定图案预渲染成离屏 canvas,
+   运行时一次 drawImage, 替代每帧多次 fillStyle+fillRect/arc 的重复绘制) ---- */
+var _fxCache = {}
+function fxCanvas(key, w, h, draw) {
+  var c = _fxCache[key]
+  if (c) return c
+  c = ensureCanvas(w, h)
+  if (!c) return null
+  draw(c.getContext('2d'))
+  _fxCache[key] = c
+  return c
+}
+/* 金币: 外圈 #f8b020 r7 + 内圈 #e89010 r4 (原 drawCoin 每帧 2 次 arc+fill) */
+function fxCoin() {
+  return fxCanvas('coin', 14, 14, function (fc) {
+    fc.fillStyle = '#f8b020'
+    fc.beginPath(); fc.arc(7, 7, 7, 0, 6.283); fc.fill()
+    fc.fillStyle = '#e89010'
+    fc.beginPath(); fc.arc(7, 7, 4, 0, 6.283); fc.fill()
+  })
+}
+/* 火球: 橙外 20x20 + 金内 14x14 (24x24 瓦片) */
+function fxFireball() {
+  return fxCanvas('fireball', 24, 24, function (fc) {
+    fc.fillStyle = C_ORANGE
+    fc.fillRect(2, 2, 20, 20)
+    fc.fillStyle = C_COIN
+    fc.fillRect(5, 5, 14, 14)
+  })
+}
+/* 岩浆火球: 红 20 + 橙 14 + 黄 8 三圈同心 (24x24) */
+function fxLavaFireball() {
+  return fxCanvas('lavaFireball', 24, 24, function (fc) {
+    fc.fillStyle = '#ff3300'
+    fc.fillRect(2, 2, 20, 20)
+    fc.fillStyle = '#ff9900'
+    fc.fillRect(5, 5, 14, 14)
+    fc.fillStyle = '#ffff00'
+    fc.fillRect(8, 8, 8, 8)
+  })
+}
+/* 火焰棒中心轴: 12x12 橙红 + 8x8 黄心 */
+function fxFirebarHub() {
+  return fxCanvas('firebarHub', 12, 12, function (fc) {
+    fc.fillStyle = '#ff3300'
+    fc.fillRect(0, 0, 12, 12)
+    fc.fillStyle = '#ffcc00'
+    fc.fillRect(2, 2, 8, 8)
+  })
+}
+/* 火焰棒火球段: 10x10 橙红 + 6x6 黄心 */
+function fxFirebarBall() {
+  return fxCanvas('firebarBall', 10, 10, function (fc) {
+    fc.fillStyle = '#ff3300'
+    fc.fillRect(0, 0, 10, 10)
+    fc.fillStyle = '#ffcc00'
+    fc.fillRect(2, 2, 6, 6)
+  })
+}
+/* 抛出的锤子 (T 形锤头, 24*0.6 尺寸): 左右深棕块 + 中红条 */
+function fxHammer() {
+  return fxCanvas('hammer', 12, 6, function (fc) {
+    fc.fillStyle = '#8a5a2b'
+    fc.fillRect(2, 0, 5, 3)
+    fc.fillRect(7, 0, 5, 3)
+    fc.fillStyle = '#c0392b'
+    fc.fillRect(3, 3, 9, 3)
+  })
+}
+/* 砖块碎片: 7x7 砖色 */
+function fxDebris() {
+  return fxCanvas('debris', 7, 7, function (fc) {
+    fc.fillStyle = C_BRICK
+    fc.fillRect(0, 0, 7, 7)
+  })
+}
+/* 岩浆溅落火花: 5x5 橙 + 4x4 深橙 (整体 7x7) */
+function fxPuff() {
+  return fxCanvas('puff', 7, 7, function (fc) {
+    fc.fillStyle = '#ff8822'
+    fc.fillRect(3, 0, 5, 5)
+    fc.fillStyle = '#ff4400'
+    fc.fillRect(0, 4, 4, 4)
+  })
+}
+
 function spriteToCanvas(sprite, scale, flip, cm) {
   /* 缓存挂到贴图数组对象上 (数组是对象): 避免每帧大字符串拼接 + scale 隔离 */
   if (!sprite.__canvasCache) sprite.__canvasCache = {}
@@ -1071,7 +1157,25 @@ function Game(ctx, hooks) {
   this._bgCloudCache = null
   this._hudStaticCache = null
   this._titleStaticCache = null
+  /* 当前 fillStyle 去重缓存 (参考 Pencraft rect(): 同色不重复写 fillStyle) */
+  this._fill = ''
   this.reset()
+}
+
+/* 绘制封装: fillStyle 去重 (颜色变化才写属性) + 坐标整数化 + 空矩形短路.
+   软件渲染/QuickJS 下减少 fillStyle 属性写入和取整抖动 */
+Game.prototype.rect = function (color, x, y, w, h) {
+  var ctx = this.ctx
+  x = Math.round(x)
+  y = Math.round(y)
+  w = Math.ceil(w)
+  h = Math.ceil(h)
+  if (w <= 0 || h <= 0) return
+  if (this._fill !== color) {
+    ctx.fillStyle = color
+    this._fill = color
+  }
+  ctx.fillRect(x, y, w, h)
 }
 
 /* 调试/运行时切换地面渲染模式: 纯色填充 <-> 原版贴图平铺. 切换后强制静态层缓存重建 */
@@ -2696,6 +2800,8 @@ Game.prototype.render = function () {
   if (offY < 0) offY = 0
   this.viewSc = sc
   this.viewOffY = offY
+  /* 重置 fillStyle 去重缓存: 下面清屏直接用 ctx, 不经过 rect() */
+  this._fill = ''
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.fillStyle = '#6cb8f8'
   ctx.fillRect(0, 0, cw, ch)
@@ -2726,8 +2832,7 @@ Game.prototype.render = function () {
     if (e.x + e.w < cam || e.x > cam + VIEW_W) continue
     if (!e.alive) {
       /* 踩扁 */
-      ctx.fillStyle = C_BROWN
-      ctx.fillRect(e.x, e.y + e.h - 8, e.w, 8)
+      this.rect(C_BROWN, e.x, e.y + e.h - 8, e.w, 8)
       continue
     }
     var spr
@@ -2741,7 +2846,12 @@ Game.prototype.render = function () {
     } else if (e.kind === 'paratroopa_r') {
       spr = SPR_PARA_R
     } else if (e.kind === 'lavaFireball') {
-      /* 岩浆火球: 橙红火球 */
+      /* 岩浆火球: 橙红火球 — 预渲染离屏缓存, 一次 drawImage (替代 3 次 fillStyle+fillRect) */
+      var lf = fxLavaFireball()
+      if (lf) {
+        ctx.drawImage(lf, e.x - cam, e.y)
+        continue
+      }
       ctx.fillStyle = '#ff3300'
       ctx.fillRect(e.x - cam + 2, e.y + 2, e.w - 4, e.h - 4)
       ctx.fillStyle = '#ff9900'
@@ -2767,34 +2877,46 @@ Game.prototype.render = function () {
       spr = SPR_CHEEP
     } else if (e.kind === 'hammer') {
       if (e.isProjectile) {
-        /* 抛出的锤子: 小锤色块 */
-        ctx.fillStyle = '#8a5a2b'
-        ctx.fillRect(e.x - cam + 2, e.y + e.h - 6, 5, 3)
-        ctx.fillRect(e.x - cam + e.w - 7, e.y + e.h - 6, 5, 3)
-        ctx.fillStyle = '#c0392b'
-        ctx.fillRect(e.x - cam + 3, e.y + e.h - 3, e.w - 6, 3)
+        /* 抛出的锤子: 预渲染离屏缓存, 一次 drawImage (替代 3 次 fillStyle+fillRect) */
+        var hm = fxHammer()
+        if (hm) {
+          ctx.drawImage(hm, Math.round(e.x - cam) + 2, Math.round(e.y + e.h) - 6)
+        } else {
+          this.rect('#8a5a2b', e.x - cam + 2, e.y + e.h - 6, 5, 3)
+          this.rect('#8a5a2b', e.x - cam + e.w - 7, e.y + e.h - 6, 5, 3)
+          this.rect('#c0392b', e.x - cam + 3, e.y + e.h - 3, e.w - 6, 3)
+        }
       } else {
         spr = SPR_HAMMER
       }
     } else if (e.kind === 'lakitu') {
       spr = SPR_LAKITU
     } else if (e.kind === 'firebar') {
-      /* 火焰棒: 原版直棒 (火球沿直线排列, 绕轴旋转, 碰到任意一段都受伤) */
-      var cx = e.x - cam + e.w / 2
-      var cy = e.y + e.h / 2
+      /* 火焰棒: 原版直棒 (火球沿直线排列, 绕轴旋转, 碰到任意一段都受伤)
+         中心轴/火球段预渲染成离屏缓存, 循环只 drawImage */
+      var cx0 = e.x - cam + e.w / 2
+      var cy0 = e.y + e.h / 2
+      var hub = fxFirebarHub()
+      var fbb = fxFirebarBall()
+      if (hub && fbb) {
+        ctx.drawImage(hub, Math.round(cx0) - 6, Math.round(cy0) - 6)
+        for (var fi = 0; fi < e.len; fi++) {
+          var fa = e.angle
+          var fx0 = cx0 + Math.cos(fa) * (fi + 1) * TILE * 0.5
+          var fy0 = cy0 + Math.sin(fa) * (fi + 1) * TILE * 0.5
+          ctx.drawImage(fbb, Math.round(fx0) - 5, Math.round(fy0) - 5)
+        }
+        continue
+      }
       /* 中心轴: 与周围火球同款画法 (橙红外圈+黄心), 避免 1.5x 非整数缩放像素图出条纹 */
-      ctx.fillStyle = '#ff3300'
-      ctx.fillRect(cx - 6, cy - 6, 12, 12)
-      ctx.fillStyle = '#ffcc00'
-      ctx.fillRect(cx - 4, cy - 4, 8, 8)
-      for (var fi = 0; fi < e.len; fi++) {
-        var fa = e.angle
-        var fx = cx + Math.cos(fa) * (fi + 1) * TILE * 0.5
-        var fy = cy + Math.sin(fa) * (fi + 1) * TILE * 0.5
-        ctx.fillStyle = '#ff3300'
-        ctx.fillRect(fx - 5, fy - 5, 10, 10)
-        ctx.fillStyle = '#ffcc00'
-        ctx.fillRect(fx - 3, fy - 3, 6, 6)
+      this.rect('#ff3300', cx0 - 6, cy0 - 6, 12, 12)
+      this.rect('#ffcc00', cx0 - 4, cy0 - 4, 8, 8)
+      for (var fi2 = 0; fi2 < e.len; fi2++) {
+        var fa2 = e.angle
+        var fx2 = cx0 + Math.cos(fa2) * (fi2 + 1) * TILE * 0.5
+        var fy2 = cy0 + Math.sin(fa2) * (fi2 + 1) * TILE * 0.5
+        this.rect('#ff3300', fx2 - 5, fy2 - 5, 10, 10)
+        this.rect('#ffcc00', fx2 - 3, fy2 - 3, 6, 6)
       }
       continue
     } else {
@@ -2830,10 +2952,13 @@ Game.prototype.render = function () {
   for (var fb = 0; fb < this.fireballs.length; fb++) {
     var f = this.fireballs[fb]
     if (!f.alive || f.x + f.w < cam || f.x > cam + VIEW_W) continue
-    ctx.fillStyle = C_ORANGE
-    ctx.fillRect(f.x - cam + 2, f.y + 2, f.w - 4, f.h - 4)
-    ctx.fillStyle = C_COIN
-    ctx.fillRect(f.x - cam + 5, f.y + 5, f.w - 10, f.h - 10)
+    var fbc = fxFireball()
+    if (fbc) {
+      ctx.drawImage(fbc, f.x - cam, f.y)
+      continue
+    }
+    this.rect(C_ORANGE, f.x - cam + 2, f.y + 2, f.w - 4, f.h - 4)
+    this.rect(C_COIN, f.x - cam + 5, f.y + 5, f.w - 10, f.h - 10)
   }
 
   /* 库巴 BOSS (原版 2x2 瓦片: SPR_BOWSER 已预烘培 48x48 整数倍, 避免 1.5x 小数缩放
@@ -3258,7 +3383,12 @@ Game.prototype.renderPlayer = function (ctx, cam) {
 }
 
 Game.prototype.drawCoin = function (ctx, cx, cy, t) {
-  /* 简单黄色金币 (圆形) */
+  /* 简单黄色金币 (圆形) — 预渲染离屏缓存后一次 drawImage (替代每帧 2 次 arc+fill) */
+  var c = fxCoin()
+  if (c) {
+    ctx.drawImage(c, Math.round(cx) - 7, Math.round(cy) - 7)
+    return
+  }
   ctx.fillStyle = '#f8b020'
   ctx.beginPath()
   ctx.arc(cx, cy, 7, 0, 6.283)
@@ -3276,19 +3406,27 @@ Game.prototype.renderParticles = function (ctx, cam) {
     if (pt.kind === 'coinpop') {
       this.drawCoin(ctx, sx, pt.y, 0.6)
     } else if (pt.kind === 'debris') {
-      ctx.fillStyle = C_BRICK
-      ctx.fillRect(sx - 3, pt.y - 3, 7, 7)
+      /* 砖块碎片: 预渲染离屏缓存, 一次 drawImage */
+      var db = fxDebris()
+      if (db) {
+        ctx.drawImage(db, Math.round(sx) - 3, Math.round(pt.y) - 3)
+      } else {
+        this.rect(C_BRICK, sx - 3, pt.y - 3, 7, 7)
+      }
     } else if (pt.kind === 'text') {
       ctx.fillStyle = C_WHITE
       ctx.font = 'bold 14px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(pt.text || '1000', sx, pt.y)
     } else if (pt.kind === 'puff') {
-      /* 岩浆溅落: 橙红火花 */
-      ctx.fillStyle = '#ff8822'
-      ctx.fillRect(sx - 2, pt.y - 2, 5, 5)
-      ctx.fillStyle = '#ff4400'
-      ctx.fillRect(sx - 5, pt.y + 2, 4, 4)
+      /* 岩浆溅落: 橙红火花 — 预渲染离屏缓存, 一次 drawImage */
+      var pf = fxPuff()
+      if (pf) {
+        ctx.drawImage(pf, Math.round(sx) - 5, Math.round(pt.y) - 2)
+      } else {
+        this.rect('#ff8822', sx - 2, pt.y - 2, 5, 5)
+        this.rect('#ff4400', sx - 5, pt.y + 2, 4, 4)
+      }
     }
   }
 }
@@ -3363,20 +3501,17 @@ Game.prototype.renderControls = function (ctx) {
   var pulse = 0.5 + 0.5 * Math.sin(t)
   /* 左区 */
   if (this.input.left) {
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'
-    ctx.fillRect(0, VIEW_H - 60, 320, 60)
+    this.rect('rgba(255,255,255,0.25)', 0, VIEW_H - 60, 320, 60)
   }
   this.arrow(ctx, 160, VIEW_H - 32, -1, this.input.left ? 1 : 0.35 + pulse * 0.25)
   /* 右区 */
   if (this.input.right) {
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'
-    ctx.fillRect(320, VIEW_H - 60, 320, 60)
+    this.rect('rgba(255,255,255,0.25)', 320, VIEW_H - 60, 320, 60)
   }
   this.arrow(ctx, 480, VIEW_H - 32, 1, this.input.right ? 1 : 0.35 + pulse * 0.25)
   /* 跳跃区 */
   if (this.input.jump) {
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'
-    ctx.fillRect(640, VIEW_H - 60, 320, 60)
+    this.rect('rgba(255,255,255,0.25)', 640, VIEW_H - 60, 320, 60)
   }
   ctx.fillStyle = 'rgba(255,255,255,' + (this.input.jump ? 1 : 0.55 + pulse * 0.25) + ')'
   ctx.font = 'bold 20px sans-serif'
@@ -3415,11 +3550,9 @@ Game.prototype.arrow = function (ctx, cx, cy, dir, alpha) {
 
 Game.prototype.renderOverlay = function (ctx) {
   if (this.state === 'dead') {
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    this.rect('rgba(0,0,0,0.25)', 0, 0, VIEW_W, VIEW_H)
   } else if (this.state === 'clear') {
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    this.rect('rgba(0,0,0,0.35)', 0, 0, VIEW_W, VIEW_H)
     ctx.fillStyle = C_WHITE
     ctx.font = 'bold 30px monospace'
     ctx.textAlign = 'center'
