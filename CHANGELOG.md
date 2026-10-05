@@ -6,10 +6,15 @@
 - 移除保存提示中的 ✓ ✗ 特殊符号（U+2713/U+2717，词典笔无对应字体会显示方块乱码），改为纯文字"已保存"/"保存失败"
 
 ### 打包命名与 appid 调整 (参考 Pencraft 多机型单 appid 做法)
-- 原 cvi 版更名为 **cvia 版**，适配 cvis / s7 / x5 机型
-- cvia 包 appid 由 8001865309000003 改为与 rk 一致的 **8001865309000002**（同一 appid 适配多机型，与 Pencraft 等上架应用一致）
+- 原 cvi 版更名为 **cvia 版**
+- cvia 包 appid 由 8001865309000003 改为与 rk 一致的 **8001865309000002**（同一 appid 适配多平台，与 Pencraft 等上架应用一致）
 - 产物目录由 cvi/ 调整为 cvia/，打包脚本 scripts/build-amr.mjs 同步更新
-- BUILD_TARGET 内部标识由 'cvi' 改为 'cvia'，缩放逻辑不变（晶晨平台仍用 $falcon.env 读物理分辨率）
+- BUILD_TARGET 内部标识由 'cvi' 改为 'cvia'，缩放逻辑不变（Cvitek 平台仍用 $falcon.env 读物理分辨率）
+
+### 平台归属 (依据 dictpen-rootfs 设备树映射表确认)
+- **rk 包** = RK 平台（瑞芯微 aarch64 / panet.so）：覆盖 **X5 Pro**（RK3566）、X3s、X6plus、P5 等
+- **cvia 包** = Cvitek 平台（CV1826 arm32 / bridge.so）：覆盖 **cvis、S7pro**（Y08_CV1813）等
+- 两平台 ABI 不同（arm32 vs aarch64），native 库互不通用，故按平台分两个包，同一 appid
 
 ## v2.2.3 (2026-10-05)
 

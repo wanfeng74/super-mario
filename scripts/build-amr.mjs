@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * 双平台打包脚本: rk (瑞芯微 aarch64 / panet.so) + cvia (晶晨 arm32 / bridge.so, 适配 cvis/s7/x5)
+ * 双平台打包脚本: rk (瑞芯微 aarch64 / panet.so, 覆盖 RK3566 平台: X5 Pro/X3s/X6plus/P5 等)
+ *               + cvia (Cvitek arm32 / bridge.so, 覆盖 CV1826 平台: cvis/S7pro 等)
  * 用法: node scripts/build-amr.mjs
  * 产物: rk/  和  cvia/
- * appid 统一为 BASE_APPID (与 Pencraft 等多机型应用一致, 同一 appid 适配多机型)
+ * appid 统一为 BASE_APPID (参考 Pencraft 多机型单 appid 做法, 同一 appid 适配多平台)
  */
 import { execSync } from 'child_process'
 import { copyFileSync, existsSync, renameSync, readdirSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from 'fs'
@@ -18,13 +19,15 @@ const TARGET_FILE = join(UI, 'src/services/build-target.js')
 const PKG_JSON = join(UI, 'package.json')
 const VERSION_JS = join(UI, 'src/services/version.js')
 const BASE_APPID = '8001865309000002'
-/* cvia 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法), 适配 cvis/s7/x5 */
+/* cvia 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法):
+   rk 包   = RK 平台 (aarch64/panet.so, 含 X5 Pro)
+   cvia 包 = Cvitek 平台 (arm32/bridge.so, 含 cvis/S7pro) */
 
 function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
-   rk   = 瑞芯微 aarch64, 缩放基准用 vh (window.innerHeight)
-   cvia = 晶晨 arm32 (适配 cvis/s7/x5), 缩放基准用 dh ($falcon.env.deviceHeight) */
+   rk   = 瑞芯微 aarch64 (RK 平台: X5 Pro/X3s/X6plus/P5 等), 缩放基准用 vh (window.innerHeight)
+   cvia = Cvitek arm32 (CV1826 平台: cvis/S7pro 等), 缩放基准用 dh ($falcon.env.deviceHeight) */
 export const BUILD_TARGET = '${t}'\n`)
 }
 
@@ -70,7 +73,7 @@ function buildRk() {
 }
 
 function buildCvia() {
-  console.log('\n=== 打包 cvia 版 (晶晨 arm32 / bridge.so, dh 缩放, 适配 cvis/s7/x5, appid 与 rk 一致) ===')
+  console.log('\n=== 打包 cvia 版 (Cvitek arm32 / bridge.so, dh 缩放, 覆盖 CV1826 平台: cvis/S7pro, appid 与 rk 一致) ===')
   setTarget('cvia')
   /* appid 保持 BASE_APPID (与 rk 一致, 参考 Pencraft 多机型单 appid) */
   renameSync(PANET, PANET + '.bak')
