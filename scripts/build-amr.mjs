@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * 整盒多平台打包脚本 (依据 dictpen-rootfs 设备树映射表):
- *   rk   = RK 平台 (瑞芯微 aarch64 / panet.so): 覆盖 RK3566(X3s/X6plus/P5/X5Pro) + RK3562(X7) + RK3326(X6plus)
- *   cvis = Cvitek 平台 (CV1826 arm32 / bridge.so): 覆盖 S7pro/S6pro 等 CV 系机型
+ * 整盒多平台打包脚本 (平台归属 2026-10-10 依据 POSC versionInfo 实测更正):
+ *   rk   = RK 平台 (瑞芯微 aarch64 / panet.so): 覆盖 RK3566(X3s/X6plus/P5) + RK3562(X7) + RK3326(X6plus)
+ *   cvis = S 系列 / X5 系列 (arm32 glibc / bridge.so, 两系列 so 合并共用): 覆盖 S7pro/S6pro(CV1826) + X5 系列
+ *          (X5 SDK 库实测为 ELF32 ARM/glibc, 不属于 RK3566/aarch64, 勿归入 rk 包)
  *   cvia = A6pro (Rockchip RV1106 arm32 / bridge.so): 用 RV1106 工具链 (arm-rockchip830-linux-uclibcgnueabihf,
  *          开源源 Luckfox Pico SDK) + iot-miniapp-sdk 模板编译的最小兼容库, 产物放 ui/libs-rv1106/
  * 用法: node scripts/build-amr.mjs
@@ -27,8 +28,8 @@ const BASE_APPID = '8001865309000002'
 const PANET_BAK = join(process.cwd(), '.tmp-panet.so.bak')
 const BRIDGE_BAK2 = join(process.cwd(), '.tmp-bridge.so.bak')
 /* cvis 与 rk 共用同一 appid (参考 Pencraft 多机型单 appid 做法):
-   rk 包   = RK 平台 (aarch64/panet.so): X3s/X6plus/P5/X5Pro/X7
-   cvis 包 = Cvitek 平台 (arm32/bridge.so): S7pro/S6pro 等 */
+   rk 包   = RK 平台 (aarch64/panet.so): X3s/X6plus/P5/X7 (RK3566/RK3562/RK3326)
+   cvis 包 = S 系列/X5 系列 (arm32 glibc/bridge.so, so 合并共用): S7pro/S6pro(CV1826) + X5 系列 */
 
 /* =====================================================================
  * so 平台预检 (2026-10-09 新增, 防止 cvis 混用 A 系列库问题重演)
@@ -78,8 +79,8 @@ function precheckSo() {
 function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
-   rk   = 瑞芯微 aarch64 (RK 平台: X3s/X6plus/P5/X5Pro/X7), 缩放基准用 vh (window.innerHeight)
-   cvis = Cvitek arm32 (CV1826 平台: S7pro/S6pro 等), 缩放基准用 dh ($falcon.env.deviceHeight)
+   rk   = 瑞芯微 aarch64 (RK 平台: X3s/X6plus/P5/X7), 缩放基准用 vh (window.innerHeight)
+   cvis = arm32 glibc (S 系列/X5 系列, so 合并共用: S7pro/S6pro/X5), 缩放基准用 dh ($falcon.env.deviceHeight)
    cvia = A6pro (Rockchip RV1106 arm32), 缩放基准用 dh ($falcon.env.deviceHeight) */
 export const BUILD_TARGET = '${t}'\n`)
 }

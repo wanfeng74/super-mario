@@ -1,5 +1,12 @@
 # 更新日志
 
+## v2.2.7 补充更正 (2026-10-10, 未发新包)
+
+### 平台归属更正：X5 系列归入 cvis（so 合并共用）
+- **更正依据（POSC 网盘 versionInfo 实测）**：X5 系列 SDK 库（libcurl.so 等）为 **ELF32 ARM / glibc**，与 S 系列（S6Pro）完全同型；设备树映射表 RK3566 平台仅有 X3s/X6plus/P5，**无 X5 Pro**。
+- **结论**：S 系列与 X5 系列是两个机型系列，但 **so 文件合并共用**（同为 arm32 glibc bridge.so）。X5 不属于 RK3566/aarch64，**从 rk 包移除，归入 cvis 包**（v2.2.7 的 glibc arm32 库即同时覆盖 S7pro/S6pro/X5）。
+- 同步更新：交接文档/开发规范/源代码打包方案平台对照表、build-amr.mjs 平台注释。产物与库文件不变，无需重新发包。
+
 ## v2.2.7 (2026-10-09)
 
 ### cvis 包机型识别修复（S 系列专用 glibc bridge 库）
