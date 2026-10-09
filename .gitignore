@@ -23,3 +23,7 @@ build/
 test/
 *.bak*
 *.v2110bak
+
+# 本地临时编译工程 (glibc bridge 交叉编译)
+.tmp-jsapi-glibc-build/
+.archive-libs/

@@ -1,5 +1,13 @@
 # 更新日志
 
+## v2.2.7 (2026-10-09)
+
+### cvis 包机型识别修复（S 系列专用 glibc bridge 库）
+- **问题（真机实测）**：cvis 包提交后被固件识别为 A 系列。根因：包内 `libjsapi_bridge.so` 一直是 uClibc/cvia（A 系列）工具链编译的产物（依赖 `libc.so.0`+`ld-uClibc.so.1`，源码路径含 loliapp-rime-cvia），固件按 `.so` 的 libc 类型识别机型系列，appid 不参与机型识别。
+- **修复**：用 iot-miniapp-sdk 模板 + glibc arm32 工具链（gcc-arm-linux-gnueabihf 11.4 / glibc 2.35）交叉编译 S 系列专用最小兼容库 `libjsapi_bridge.so`（ELF32 ARM EABI5 hard-float，依赖 `libc.so.6`+`ld-linux-armhf.so.3`，导出 `custom_init_jsapis`，SONAME=文件名），替换 `ui/libs-cvi/`。
+- **打包脚本加固**：`scripts/build-amr.mjs` 新增 so 平台预检（rk=glibc aarch64 / cvis=glibc arm32 / cvia=uclibc arm32），任一平台 libc 类型不匹配即拒绝整包；`SKIP_SO_CHECK=1` 可临时绕过（危险操作）。
+- 旧 uclibc 库备份在 `.archive-libs/libjsapi_bridge.so.uclibc-old.bak`；真机验证：S7pro/S6pro 安装后应识别为 S 系列。
+
 ## v2.2.6 (2026-10-06)
 
 ### A6pro (cvia) 适配完成，三平台整盒齐

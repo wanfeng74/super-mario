@@ -30,6 +30,51 @@ const BRIDGE_BAK2 = join(process.cwd(), '.tmp-bridge.so.bak')
    rk 包   = RK 平台 (aarch64/panet.so): X3s/X6plus/P5/X5Pro/X7
    cvis 包 = Cvitek 平台 (arm32/bridge.so): S7pro/S6pro 等 */
 
+/* =====================================================================
+ * so 平台预检 (2026-10-09 新增, 防止 cvis 混用 A 系列库问题重演)
+ * 背景: 固件/商店按包内 .so 的 libc 类型识别机型系列 (实测: cvis 包曾
+ * 误用 uClibc/cvia 编译的 bridge.so, 提交后被识别为 A 系列).
+ * 判定规则:
+ *   - rk    = glibc aarch64 (ld-linux-aarch64.so.1 / libc.so.6)
+ *   - cvis  = glibc arm32   (S7pro/S6pro, CV1826, 对应 arm-glibc-s61)
+ *   - cvia  = uclibc arm32  (A6pro/RV1106, 对应 arm-uclibc-a6p)
+ * 任一平台库类型不匹配即拒绝整包打包; 确知库正确时可设 SKIP_SO_CHECK=1 绕过.
+ * ===================================================================== */
+function soLibc(path) {
+  if (!existsSync(path)) return 'missing'
+  try {
+    const out = execSync(`readelf -d "${path}" 2>/dev/null | grep -oE 'Shared library: \\[[^]]+\\]'`, { encoding: 'utf8' })
+    const tags = (out.match(/\[[^\]]+\]/g) || []).map(s => s.slice(1, -1))
+    if (tags.some(t => t.includes('ld-uClibc') || t === 'libc.so.0')) return 'uclibc'
+    if (tags.some(t => t.includes('ld-linux') || t === 'libc.so.6')) return 'glibc'
+    return 'unknown'
+  } catch (e) {
+    return 'readelf-error'
+  }
+}
+
+function assertLibc(path, expect, label) {
+  const got = soLibc(path)
+  if (got !== expect) {
+    throw new Error(
+      `[so平台预检失败] ${label}: ${path}\n` +
+      `  当前 libc 类型 = ${got}, 期望 = ${expect}\n` +
+      `  固件按 .so 的 libc 识别机型系列, 混用会导致包被识别成错误系列\n` +
+      `  (v2.2.6 cvis 曾误用 uClibc/cvia 库被识别为 A 系列).\n` +
+      `  请替换为正确编译目标后再打包; 若确知库正确, 可设 SKIP_SO_CHECK=1 强制跳过.`
+    )
+  }
+  console.log(`[so平台预检通过] ${label}: ${path} -> ${got}`)
+}
+
+function precheckSo() {
+  console.log('\n=== so 平台预检 ===')
+  assertLibc(PANET, 'glibc', 'rk (panet.so)')
+  assertLibc(BRIDGE_SRC, 'glibc', 'cvis (libs-cvi/bridge.so, S 系列需 glibc arm32)')
+  assertLibc(BRIDGE_SRC_RV, 'uclibc', 'cvia (libs-rv1106/bridge.so, A6pro 需 uclibc)')
+  console.log('=== so 平台预检全部通过 ===\n')
+}
+
 function setTarget(t) {
   writeFileSync(TARGET_FILE,
     `/* 构建目标: 由 scripts/build-amr.mjs 在打包前写入.
@@ -135,6 +180,15 @@ function buildCvia() {
   console.log('->', out)
 }
 
+try {
+  precheckSo()
+} catch (e) {
+  if (process.env.SKIP_SO_CHECK === '1') {
+    console.warn('[警告] SKIP_SO_CHECK=1 已设置, 跳过 so 平台预检, 请自行确认库匹配!')
+  } else {
+    throw e
+  }
+}
 buildRk()
 buildCvis()
 buildCvia()
